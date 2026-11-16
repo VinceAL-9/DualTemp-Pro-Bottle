@@ -14,26 +14,47 @@
     }
   </script>
   <style>
-    body { margin: 0; font-family: system-ui, sans-serif; background: #0f1115; color: #f3f4f6; display: flex; height: 100vh; }
-    #viewer { flex: 1; position: relative; }
-    #sidebar { width: 340px; padding: 24px; background: #161920; border-left: 1px solid #262b36; overflow-y: auto; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; font-family: system-ui, sans-serif; background: #12161f; color: #f3f4f6; }
+    body { display: flex; overflow: hidden; }
+    #viewer { flex: 1; height: 100vh; position: relative; min-width: 0; }
+    #status { position: absolute; top: 16px; left: 16px; padding: 8px 12px; border-radius: 6px; background: rgba(15, 23, 42, 0.88); border: 1px solid #334155; font-size: 0.85rem; z-index: 10; }
+    #sidebar { width: 360px; height: 100vh; padding: 24px; background: #181d27; border-left: 1px solid #2b3344; overflow-y: auto; }
     .control { margin-bottom: 20px; }
     label { display: block; font-size: 0.85rem; color: #9ca3af; margin-bottom: 6px; }
     input[type="range"] { width: 100%; }
     button { width: 100%; padding: 10px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.82rem; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #2b3344; }
+    th { color: #9ca3af; font-weight: 600; }
   </style>
 </head>
 <body>
-  <div id="viewer"></div>
+  <div id="viewer">
+    <div id="status">Loading 3D CAD assembly...</div>
+  </div>
   <aside id="sidebar">
-    <h2>Base Power & Control Bay</h2>
+    <h2>DualTemp Pro Smart Bottle</h2>
     <div class="control">
-      <label for="explode">Exploded View</label>
+      <label for="explode">Exploded Assembly View</label>
       <input id="explode" type="range" min="0" max="1" step="0.01" value="0" />
     </div>
     <div class="control">
-      <button id="xray-btn" type="button">Toggle Housing X-Ray</button>
+      <button id="xray-btn" type="button">Toggle Shell X-Ray</button>
     </div>
+
+    <table>
+      <thead>
+        <tr><th>Subsystem</th><th>Specification</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Hot Chamber (-X)</td><td>350 ml · Fixed 65°C · 316 SS</td></tr>
+        <tr><td>Cold Chamber (+X)</td><td>400 ml · Fixed 4°C · 316 SS</td></tr>
+        <tr><td>Thermoelectric Core</td><td>TEC1-12706 Peltier + Al Heatsinks</td></tr>
+        <tr><td>Battery & Charging</td><td>10,000mAh LiPo · 30W PD USB-C</td></tr>
+        <tr><td>Exterior & Grip</td><td>Matte 304 SS · RTV-2 Silicone · IPX7</td></tr>
+      </tbody>
+    </table>
   </aside>
 
   <script type="module">
@@ -43,105 +64,155 @@
     import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
     const container = document.getElementById("viewer");
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x181c24);
+    const statusEl = document.getElementById("status");
 
-    const width = container.clientWidth || window.innerWidth - 340;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x161b26);
+
+    const width = container.clientWidth || (window.innerWidth - 360);
     const height = container.clientHeight || window.innerHeight;
 
-    const camera = new THREE.PerspectiveCamera(40, width / height, 0.01, 2000);
+    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 5000);
+    camera.position.set(220, 175, 250);
+
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.25;
     container.appendChild(renderer.domElement);
 
-    // Required for metallic MeshStandardMaterial to reflect light instead of black
+    // Studio IBL environment so metallic materials never render black
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
+    controls.target.set(0, 110, 0);
+    controls.update();
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    keyLight.position.set(160, 280, 200);
+    scene.add(keyLight);
 
     const parts = {};
     const basePositions = {};
+    const fallbackMaterial = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.4, metalness: 0.5 });
+
     const materials = {
-        base_housing: new THREE.MeshStandardMaterial({ color: 0x3b4252, roughness: 0.4, metalness: 0.75 }),
-        battery_pack: new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.35, metalness: 0.2 }),
-        controller_pcb: new THREE.MeshStandardMaterial({ color: 0x059669, roughness: 0.4, metalness: 0.4 }),
-        usbc_port: new THREE.MeshStandardMaterial({ color: 0xe5e7eb, roughness: 0.25, metalness: 0.9 }),
-        usbc_silicone_plug: new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.85, metalness: 0.0 }),
+      base_housing: new THREE.MeshStandardMaterial({ color: 0x2a303c, roughness: 0.42, metalness: 0.65 }),
+      battery_pack: new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.35, metalness: 0.2 }),
+      controller_pcb: new THREE.MeshStandardMaterial({ color: 0x059669, roughness: 0.4, metalness: 0.4 }),
+      usbc_port: new THREE.MeshStandardMaterial({ color: 0xe5e7eb, roughness: 0.25, metalness: 0.9 }),
+      usbc_silicone_plug: new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.85, metalness: 0.0 }),
+      thermal_bulkhead: new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.4, metalness: 0.75 }),
+      peltier_module: new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3, metalness: 0.1 }),
+      hot_heatsink: new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.3, metalness: 0.85 }),
+      cold_heatsink: new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3, metalness: 0.85 }),
+      ntc_sensor_harness: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.3 }),
+      outer_body_shell: new THREE.MeshStandardMaterial({ color: 0x2a303c, roughness: 0.42, metalness: 0.65 }),
+      silicone_grip: new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.85, metalness: 0.05 }),
+      hot_chamber_liner: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, emissive: 0x7f1d1d, emissiveIntensity: 0.45, roughness: 0.22, metalness: 0.9 }),
+      cold_chamber_liner: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, emissive: 0x075985, emissiveIntensity: 0.45, roughness: 0.22, metalness: 0.9 }),
+      copper_radiant_shield: new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.25, metalness: 0.95 }),
+      power_button_bezel: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.22, metalness: 0.9 }),
+      power_button_cap: new THREE.MeshStandardMaterial({ color: 0x1f2937, emissive: 0x10b981, emissiveIntensity: 0.85, roughness: 0.3, metalness: 0.5 }),
     };
 
+    const modelUrl = "{% static 'models/dualtemp_bottle.glb' %}";
+
     new GLTFLoader().load(
-        "{% static 'models/dualtemp_base.glb' %}",
-        (gltf) => {
+      modelUrl,
+      (gltf) => {
+        let meshCount = 0;
         gltf.scene.traverse((child) => {
-            if (child.isMesh) {
-            const partName = materials[child.name] ? child.name : child.parent?.name;
-            if (partName && materials[partName]) {
-                child.material = materials[partName];
-                parts[partName] = child;
-                basePositions[partName] = child.position.clone();
+          if (child.isMesh) {
+            meshCount++;
+            const label = materials[child.name] ? child.name : child.parent?.name;
+            child.material = (label && materials[label]) ? materials[label] : fallbackMaterial;
+            if (label) {
+              parts[label] = child;
+              basePositions[label] = child.position.clone();
             }
-            }
+          }
         });
 
         scene.add(gltf.scene);
 
-        // Auto-frame camera to model bounding box regardless of mm/m scale
+        // Auto-frame camera to model bounds
         const box = new THREE.Box3().setFromObject(gltf.scene);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z) || 100;
+        if (!box.isEmpty()) {
+          const center = box.getCenter(new THREE.Vector3());
+          const size = box.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z);
+          controls.target.copy(center);
+          camera.position.set(center.x + maxDim * 1.15, center.y + maxDim * 0.45, center.z + maxDim * 1.35);
+          controls.update();
+        }
 
-        controls.target.copy(center);
-        camera.position.set(center.x + maxDim * 1.8, center.y + maxDim * 1.2, center.z + maxDim * 1.8);
-        controls.update();
-        console.log("Loaded parts:", Object.keys(parts), "Bounds:", size);
-        },
-        undefined,
-        (err) => console.error("GLB load failed:", err)
+        statusEl.textContent = `Loaded ${meshCount} meshes (${Object.keys(parts).length} labeled parts)`;
+        setTimeout(() => { statusEl.style.display = "none"; }, 2500);
+      },
+      undefined,
+      (err) => {
+        console.error("GLB load error:", err);
+        statusEl.style.borderColor = "#ef4444";
+        statusEl.textContent = `Error loading ${modelUrl} — check browser Console / run build_model`;
+      }
     );
 
     const offsets = {
-        base_housing: new THREE.Vector3(0, -15, 0),
-        battery_pack: new THREE.Vector3(0, 35, -18),
-        controller_pcb: new THREE.Vector3(0, 22, 18),
-        usbc_port: new THREE.Vector3(0, 10, 32),
-        usbc_silicone_plug: new THREE.Vector3(0, 10, 52),
+      base_housing: new THREE.Vector3(0, -45, 0),
+      battery_pack: new THREE.Vector3(0, -25, -24),
+      controller_pcb: new THREE.Vector3(0, -25, 24),
+      usbc_port: new THREE.Vector3(0, -35, 38),
+      usbc_silicone_plug: new THREE.Vector3(0, -35, 56),
+      thermal_bulkhead: new THREE.Vector3(0, 0, 0),
+      peltier_module: new THREE.Vector3(0, 12, 0),
+      hot_heatsink: new THREE.Vector3(-28, 12, 0),
+      cold_heatsink: new THREE.Vector3(28, 12, 0),
+      ntc_sensor_harness: new THREE.Vector3(0, 18, 28),
+      hot_chamber_liner: new THREE.Vector3(-26, 52, 0),
+      cold_chamber_liner: new THREE.Vector3(26, 52, 0),
+      copper_radiant_shield: new THREE.Vector3(0, 56, 0),
+      outer_body_shell: new THREE.Vector3(0, 82, 0),
+      silicone_grip: new THREE.Vector3(0, 82, -32),
+      power_button_bezel: new THREE.Vector3(0, 82, 34),
+      power_button_cap: new THREE.Vector3(0, 82, 46),
     };
 
     document.getElementById("explode").addEventListener("input", (e) => {
-        const t = parseFloat(e.target.value);
-        for (const [name, mesh] of Object.entries(parts)) {
+      const t = parseFloat(e.target.value);
+      for (const [name, mesh] of Object.entries(parts)) {
         if (offsets[name]) {
-            mesh.position.copy(basePositions[name]).addScaledVector(offsets[name], t);
+          mesh.position.copy(basePositions[name]).addScaledVector(offsets[name], t);
         }
-        }
+      }
     });
 
     let xray = false;
+    const shellKeys = ["base_housing", "outer_body_shell", "silicone_grip"];
     document.getElementById("xray-btn").addEventListener("click", () => {
-        xray = !xray;
-        materials.base_housing.transparent = xray;
-        materials.base_housing.opacity = xray ? 0.25 : 1.0;
-        materials.base_housing.needsUpdate = true;
+      xray = !xray;
+      for (const key of shellKeys) {
+        materials[key].transparent = xray;
+        materials[key].opacity = xray ? 0.22 : 1.0;
+        materials[key].depthWrite = !xray;
+        materials[key].needsUpdate = true;
+      }
     });
 
     window.addEventListener("resize", () => {
-        const w = container.clientWidth || window.innerWidth - 340;
-        const h = container.clientHeight || window.innerHeight;
-        camera.aspect = w / h;
-        camera.updateProjectionMatrix();
-        renderer.setSize(w, h);
+      const w = container.clientWidth || (window.innerWidth - 360);
+      const h = container.clientHeight || window.innerHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
     });
 
     function animate() {
-        requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
     }
     animate();
   </script>
