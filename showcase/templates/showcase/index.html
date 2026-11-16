@@ -1,0 +1,149 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DualTemp Pro — 3D Hardware Showcase</title>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #0f1115; color: #f3f4f6; display: flex; height: 100vh; }
+    #viewer { flex: 1; position: relative; }
+    #sidebar { width: 340px; padding: 24px; background: #161920; border-left: 1px solid #262b36; overflow-y: auto; }
+    .control { margin-bottom: 20px; }
+    label { display: block; font-size: 0.85rem; color: #9ca3af; margin-bottom: 6px; }
+    input[type="range"] { width: 100%; }
+    button { width: 100%; padding: 10px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div id="viewer"></div>
+  <aside id="sidebar">
+    <h2>Base Power & Control Bay</h2>
+    <div class="control">
+      <label for="explode">Exploded View</label>
+      <input id="explode" type="range" min="0" max="1" step="0.01" value="0" />
+    </div>
+    <div class="control">
+      <button id="xray-btn" type="button">Toggle Housing X-Ray</button>
+    </div>
+  </aside>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+
+    const container = document.getElementById("viewer");
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x181c24);
+
+    const width = container.clientWidth || window.innerWidth - 340;
+    const height = container.clientHeight || window.innerHeight;
+
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.01, 2000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    container.appendChild(renderer.domElement);
+
+    // Required for metallic MeshStandardMaterial to reflect light instead of black
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    const parts = {};
+    const basePositions = {};
+    const materials = {
+        base_housing: new THREE.MeshStandardMaterial({ color: 0x3b4252, roughness: 0.4, metalness: 0.75 }),
+        battery_pack: new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.35, metalness: 0.2 }),
+        controller_pcb: new THREE.MeshStandardMaterial({ color: 0x059669, roughness: 0.4, metalness: 0.4 }),
+        usbc_port: new THREE.MeshStandardMaterial({ color: 0xe5e7eb, roughness: 0.25, metalness: 0.9 }),
+        usbc_silicone_plug: new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.85, metalness: 0.0 }),
+    };
+
+    new GLTFLoader().load(
+        "{% static 'models/dualtemp_base.glb' %}",
+        (gltf) => {
+        gltf.scene.traverse((child) => {
+            if (child.isMesh) {
+            const partName = materials[child.name] ? child.name : child.parent?.name;
+            if (partName && materials[partName]) {
+                child.material = materials[partName];
+                parts[partName] = child;
+                basePositions[partName] = child.position.clone();
+            }
+            }
+        });
+
+        scene.add(gltf.scene);
+
+        // Auto-frame camera to model bounding box regardless of mm/m scale
+        const box = new THREE.Box3().setFromObject(gltf.scene);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 100;
+
+        controls.target.copy(center);
+        camera.position.set(center.x + maxDim * 1.8, center.y + maxDim * 1.2, center.z + maxDim * 1.8);
+        controls.update();
+        console.log("Loaded parts:", Object.keys(parts), "Bounds:", size);
+        },
+        undefined,
+        (err) => console.error("GLB load failed:", err)
+    );
+
+    const offsets = {
+        base_housing: new THREE.Vector3(0, -15, 0),
+        battery_pack: new THREE.Vector3(0, 35, -18),
+        controller_pcb: new THREE.Vector3(0, 22, 18),
+        usbc_port: new THREE.Vector3(0, 10, 32),
+        usbc_silicone_plug: new THREE.Vector3(0, 10, 52),
+    };
+
+    document.getElementById("explode").addEventListener("input", (e) => {
+        const t = parseFloat(e.target.value);
+        for (const [name, mesh] of Object.entries(parts)) {
+        if (offsets[name]) {
+            mesh.position.copy(basePositions[name]).addScaledVector(offsets[name], t);
+        }
+        }
+    });
+
+    let xray = false;
+    document.getElementById("xray-btn").addEventListener("click", () => {
+        xray = !xray;
+        materials.base_housing.transparent = xray;
+        materials.base_housing.opacity = xray ? 0.25 : 1.0;
+        materials.base_housing.needsUpdate = true;
+    });
+
+    window.addEventListener("resize", () => {
+        const w = container.clientWidth || window.innerWidth - 340;
+        const h = container.clientHeight || window.innerHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+    });
+
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
