@@ -1,410 +1,365 @@
-# showcase/cad/lid.py
-from typing import cast
+from __future__ import annotations
 
 from build123d import (
     Align,
     Axis,
     Box,
-    Cone,
+    BuildPart,
+    BuildSketch,
+    Circle,
+    Color,
+    Compound,
     Cylinder,
-    Ellipse,
     Location,
+    Locations,
+    Mode,
     Part,
-    Rot,
+    Plane,
+    RectangleRounded,
     chamfer,
     extrude,
     fillet,
+    revolve,
 )
 
-NECK_RADIUS = 37.0       # Matches NECK_RADIUS in body.py (74.0 mm diameter)
-LID_Z_START = 218.0      # Mates flush with BODY_Z_END in body.py
-COLLAR_TOP_Z = 244.0     # Upper rim of main lid collar
-GALLERY_TOP_Z = 255.0    # Underside of overhanging SAP bridge
-CAP_TOP_Z = 261.0        # Top surface of SAP bridge housing
-SEPTUM_X = -1.8          # Matches asymmetric 350 ml Hot / 400 ml Cold split
-BRIDGE_X = -1.6          # Centerline of the SAP bridge between Hot (-5.4) & Cold (+2.2) bays
+
+def _require_part(builder: BuildPart, part_name: str) -> Part:
+    """Narrow BuildPart.part from `Part | None` to `Part` for strict static typing."""
+    if builder.part is None:
+        raise RuntimeError(f"Failed to generate CAD geometry for '{part_name}'.")
+    return builder.part
 
 
-def _finalize_part(shape: object, label: str) -> Part:
-    """Narrow build123d boolean/fillet union return types to Part and attach node label."""
-    part = cast(Part, shape)
-    part.label = label
+def _build_collar_and_canopy(
+    outer_radius: float,
+    collar_height: float,
+    canopy_bottom_z: float,
+    canopy_thickness: float,
+    sap_pocket_radius: float,
+) -> Part:
+    """Build the lower threaded PP/PETG collar, individual spout locks, twin pillars, and top canopy."""
+    wall_thickness: float = 3.0
+    deck_thickness: float = 4.0
+    inner_radius: float = outer_radius - wall_thickness
+    canopy_radius: float = outer_radius + 1.2
+
+    with BuildPart() as housing:
+        # 1. Main lower collar cylinder
+        Cylinder(
+            radius=outer_radius,
+            height=collar_height,
+            align=(Align.CENTER, Align.CENTER, Align.MIN),
+        )
+        bottom_edge = housing.edges().sort_by(Axis.Z)[0]
+        top_collar_edge = housing.edges().sort_by(Axis.Z)[-1]
+        chamfer(bottom_edge, length=0.8)
+        chamfer(top_collar_edge, length=1.0)
+
+        # 2. Hollow underside cavity for bottle neck engagement
+        Cylinder(
+            radius=inner_radius,
+            height=collar_height - deck_thickness,
+            align=(Align.CENTER, Align.CENTER, Align.MIN),
+            mode=Mode.SUBTRACT,
+        )
+
+        # 3. Internal annular thread ribs inside the collar skirt
+        for thread_z in (6.5, 11.5):
+            with BuildSketch(Plane.XZ):
+                with Locations((inner_radius, thread_z)):
+                    Circle(radius=0.85)
+            revolve(axis=Axis.Z, mode=Mode.ADD)
+
+        # 4. Recessed circular spout wells on the top deck (Left = Hot, Right = Cold)
+        with BuildSketch(Plane.XY.offset(collar_height - 1.4)):
+            with Locations((-17.5, 0.0), (17.5, 0.0)):
+                Circle(radius=9.6)
+        extrude(amount=1.6, mode=Mode.SUBTRACT)
+
+        # 5. Individual Spout Safety Lock buttons on front (-Y) and rear (+Y) collar faces
+        for y_sign in (-1.0, 1.0):
+            lock_plane = Plane(
+                origin=(0.0, y_sign * (outer_radius - 0.6), collar_height * 0.52),
+                z_dir=(0.0, y_sign, 0.0),
+            )
+            with BuildSketch(lock_plane):
+                RectangleRounded(width=14.0, height=9.5, radius=2.0)
+            extrude(amount=2.1, mode=Mode.ADD)
+
+            ridge_plane = Plane(
+                origin=(0.0, y_sign * (outer_radius + 1.4), collar_height * 0.52 + 1.8),
+                z_dir=(0.0, y_sign, 0.0),
+            )
+            with BuildSketch(ridge_plane):
+                RectangleRounded(width=9.5, height=1.8, radius=0.6)
+            extrude(amount=0.7, mode=Mode.ADD)
+
+        # 6. Twin curved vertical support pillars framing the recessed left/right spout bays
+        pillar_height: float = canopy_bottom_z - collar_height + 0.5
+        pillar_outer_r: float = outer_radius - 0.6
+        pillar_inner_r: float = outer_radius - 5.4
+
+        with BuildSketch(Plane.XY.offset(collar_height - 0.2)):
+            Circle(radius=pillar_outer_r)
+            Circle(radius=pillar_inner_r, mode=Mode.SUBTRACT)
+        extrude(amount=pillar_height, mode=Mode.ADD)
+
+        bay_cut_height: float = canopy_bottom_z - collar_height
+        for x_sign in (-1.0, 1.0):
+            with Locations((x_sign * (outer_radius * 0.68), 0.0, collar_height)):
+                Box(
+                    outer_radius * 1.15,
+                    outer_radius * 1.48,
+                    bay_cut_height,
+                    align=(Align.CENTER, Align.CENTER, Align.MIN),
+                    mode=Mode.SUBTRACT,
+                )
+
+        # 7. Overhanging protective top canopy disc
+        with Locations((0.0, 0.0, canopy_bottom_z)):
+            Cylinder(
+                radius=canopy_radius,
+                height=canopy_thickness,
+                align=(Align.CENTER, Align.CENTER, Align.MIN),
+                mode=Mode.ADD,
+            )
+
+        top_canopy_rim = housing.edges().sort_by(Axis.Z)[-1]
+        chamfer(top_canopy_rim, length=1.1)
+
+        # 8. Central recessed pocket for the SAP Safety Lock button
+        with Locations((0.0, 0.0, canopy_bottom_z + 1.2)):
+            Cylinder(
+                radius=sap_pocket_radius,
+                height=canopy_thickness,
+                align=(Align.CENTER, Align.CENTER, Align.MIN),
+                mode=Mode.SUBTRACT,
+            )
+
+    part = _require_part(housing, "lid_collar_and_canopy")
+    part.label = "lid_collar"
+    part.color = Color(0.11, 0.12, 0.13)
     return part
 
 
-def build_lid_silicone_gasket() -> Part:
-    """Food-grade RTV-2 silicone perimeter ring and dual-chamber septum seal."""
-    ring_outer = Location((0, 0, 216.0)) * Cylinder(
-        radius=NECK_RADIUS - 1.6,
-        height=7.0,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    ring_inner = Location((0, 0, 215.5)) * Cylinder(
-        radius=NECK_RADIUS - 4.2,
-        height=8.0,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    gasket = ring_outer - ring_inner
-
-    septum_seal = Location((SEPTUM_X, 0, 215.8)) * Box(
-        6.4, 68.0, 5.2, align=(Align.CENTER, Align.CENTER, Align.MIN)
-    )
-    return _finalize_part(gasket + septum_seal, "lid_silicone_gasket")
-
-
-def build_flow_separators() -> Part:
-    """BPA-free PP/PETG internal flow baffle and dual isolated drinking risers."""
-    deck = Location((0, 0, 222.0)) * Cylinder(
-        radius=NECK_RADIUS - 3.6,
-        height=3.5,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-
-    divider = Location((SEPTUM_X, 0, 216.5)) * Box(
-        3.2, 65.0, 25.5, align=(Align.CENTER, Align.CENTER, Align.MIN)
-    )
-
-    # Risers terminate at Z = 242.0 mm to form lower valve seats for the pivoting spouts
-    hot_riser_outer = Location((-17.5, 0, 217.0)) * Cylinder(
-        radius=9.5, height=25.0, align=(Align.CENTER, Align.CENTER, Align.MIN)
-    )
-    hot_riser_bore = Location((-17.5, 0, 216.5)) * Cylinder(
-        radius=6.8, height=26.0, align=(Align.CENTER, Align.CENTER, Align.MIN)
-    )
-
-    cold_riser_outer = Location((15.5, 0, 217.0)) * Cylinder(
-        radius=10.5, height=25.0, align=(Align.CENTER, Align.CENTER, Align.MIN)
-    )
-    cold_riser_bore = Location((15.5, 0, 216.5)) * Cylinder(
-        radius=7.6, height=26.0, align=(Align.CENTER, Align.CENTER, Align.MIN)
-    )
-
-    separators = (
-        deck
-        + divider
-        + (hot_riser_outer - hot_riser_bore)
-        + (cold_riser_outer - cold_riser_bore)
-    )
-    return _finalize_part(separators, "flow_separators")
-
-
-def build_lid_collar_base() -> Part:
-    """Matte black BPA-free PP/PETG lid collar with recessed spout gallery & bridge pillars."""
-    seam = Location((0, 0, LID_Z_START)) * Cylinder(
-        radius=NECK_RADIUS - 0.5,
-        height=1.6,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-
-    main_collar = Location((0, 0, LID_Z_START + 1.5)) * Cylinder(
-        radius=NECK_RADIUS,
-        height=COLLAR_TOP_Z - (LID_Z_START + 1.5),
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    main_collar = chamfer(
-        main_collar.edges().filter_by(lambda e: e.center().Z > COLLAR_TOP_Z - 0.2),
-        length=1.8,
-    )
-
-    collar = seam + main_collar
-
-    cavity = Location((0, 0, LID_Z_START - 0.5)) * Cylinder(
-        radius=NECK_RADIUS - 3.4,
-        height=(COLLAR_TOP_Z - LID_Z_START) + 1.0,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    collar = collar - cavity
-
-    front_latch_recess = Location((0, NECK_RADIUS - 1.0, 231.0)) * Box(
-        18.5, 4.0, 14.5, align=(Align.CENTER, Align.CENTER, Align.CENTER)
-    )
-    collar = collar - front_latch_recess
-
-    front_pillar = Location((0, 25.0, COLLAR_TOP_Z - 1.0)) * Box(
-        16.0,
-        14.0,
-        (GALLERY_TOP_Z - COLLAR_TOP_Z) + 2.0,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    rear_pillar = Location((0, -25.0, COLLAR_TOP_Z - 1.0)) * Box(
-        16.0,
-        14.0,
-        (GALLERY_TOP_Z - COLLAR_TOP_Z) + 2.0,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    center_post = Location((SEPTUM_X, 0, COLLAR_TOP_Z - 1.0)) * Box(
-        4.4,
-        56.0,
-        (GALLERY_TOP_Z - COLLAR_TOP_Z) + 2.0,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-
-    # Vertical travel clearance slot for the SAP locking yoke (-3.4 mm stroke)
-    yoke_travel_slot = Location((BRIDGE_X, 0, GALLERY_TOP_Z - 6.0)) * Box(
-        6.4,
-        6.4,
-        7.5,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    center_post = center_post - yoke_travel_slot
-
-    return _finalize_part(
-        collar + front_pillar + rear_pillar + center_post,
-        "lid_collar_base",
-    )
-
-
-def build_individual_spout_locks() -> Part:
-    """Front thumb-release latch button and individual left/right spout safety lock tabs."""
-    front_latch = Location((0, NECK_RADIUS - 0.6, 231.0)) * Box(
-        17.2, 3.2, 13.2, align=(Align.CENTER, Align.CENTER, Align.CENTER)
-    )
-    front_latch = fillet(front_latch.edges().filter_by(Axis.Y), radius=1.8)
-    front_latch = chamfer(
-        front_latch.faces().sort_by(Axis.Y)[-1].edges(), length=0.6
-    )
-
-    hot_lock_tab = Location((-7.5, 19.5, 245.5)) * Box(
-        5.5, 5.0, 4.2, align=(Align.CENTER, Align.CENTER, Align.MIN)
-    )
-    cold_lock_tab = Location((5.5, 19.5, 245.5)) * Box(
-        5.5, 5.0, 4.2, align=(Align.CENTER, Align.CENTER, Align.MIN)
-    )
-
-    return _finalize_part(
-        front_latch + hot_lock_tab + cold_lock_tab,
-        "individual_spout_locks",
-    )
-
-
-def _build_ribbed_zip_spout(
-    x_pos: float, radius: float, side_sign: float, label: str
+def _build_sap_safety_lock(
+    canopy_bottom_z: float,
+    canopy_thickness: float,
+    pocket_radius: float,
 ) -> Part:
-    """Construct a hinged drinking spout with bellows ribs, outer pivot knuckle & oval lip nozzle."""
-    # 1. Lower spherical-bottomed valve base seating onto the chamber riser (Z = 241.0..245.5)
-    valve_base = Location((x_pos, 0, 241.0)) * Cylinder(
-        radius=radius - 0.8,
-        height=4.5,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    valve_base = fillet(
-        valve_base.edges().filter_by(lambda e: e.center().Z < 241.5),
-        radius=1.2,
-    )
+    """Build the central top SAP Safety Lock actuator button."""
+    button_radius: float = pocket_radius - 1.6
+    button_base_z: float = canopy_bottom_z + 1.4
+    button_height: float = canopy_thickness + 2.6
 
-    # 2. Outer Y-axis hinge knuckle where the spout pivots outward when unlocked
-    hinge_x = x_pos + side_sign * (radius - 1.2)
-    hinge_knuckle = (
-        Location((hinge_x, 0, 243.5))
-        * Rot(90, 0, 0)
-        * Cylinder(
-            radius=2.6,
-            height=9.0,
-            align=(Align.CENTER, Align.CENTER, Align.CENTER),
+    with BuildPart() as sap_lock:
+        with Locations((0.0, 0.0, button_base_z)):
+            Cylinder(
+                radius=button_radius,
+                height=button_height,
+                align=(Align.CENTER, Align.CENTER, Align.MIN),
+            )
+        top_rim = sap_lock.edges().sort_by(Axis.Z)[-1]
+        chamfer(top_rim, length=1.2)
+
+        with Locations((0.0, 0.0, button_base_z + button_height - 0.35)):
+            Cylinder(
+                radius=button_radius - 2.6,
+                height=0.5,
+                align=(Align.CENTER, Align.CENTER, Align.MIN),
+                mode=Mode.SUBTRACT,
+            )
+
+    part = _require_part(sap_lock, "sap_safety_lock")
+    part.label = "sap_safety_lock"
+    part.color = Color(0.24, 0.25, 0.27)
+    return part
+
+
+def _build_zip_spout(
+    x_offset: float,
+    collar_height: float,
+    canopy_bottom_z: float,
+    label: str,
+    color: Color,
+) -> Part:
+    """Build an independent color-coded zip spout (Red = Hot 65°C, Blue = Cold 4°C)."""
+    x_sign: float = -1.0 if x_offset < 0.0 else 1.0
+    stem_base_z: float = collar_height - 1.2
+    stem_height: float = (canopy_bottom_z - stem_base_z) - 0.8
+    tilt_angle: float = 16.0 * x_sign
+
+    with BuildPart() as spout:
+        with Locations((x_offset, 0.0, stem_base_z)):
+            Cylinder(
+                radius=7.2,
+                height=stem_height * 0.52,
+                align=(Align.CENTER, Align.CENTER, Align.MIN),
+            )
+
+        rotated_plane = Plane.XY.offset(stem_base_z + stem_height * 0.45).rotated(
+            (0.0, tilt_angle, 0.0)
         )
-    )
+        nozzle_plane = Plane(
+            origin=(x_offset, 0.0, stem_base_z + stem_height * 0.45),
+            z_dir=rotated_plane.z_dir,
+        )
+        with BuildSketch(nozzle_plane):
+            RectangleRounded(width=12.6, height=10.4, radius=4.2)
+        extrude(amount=stem_height * 0.56, mode=Mode.ADD)
 
-    # 3. Dual accordion silicone sealing ribs visible inside the recessed lid gallery
-    lower_rib = Location((x_pos, 0, 244.8)) * Cylinder(
-        radius=radius + 1.4,
-        height=2.4,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    lower_rib = fillet(lower_rib.edges(), radius=0.9)
+        with BuildSketch(nozzle_plane):
+            RectangleRounded(width=7.4, height=5.6, radius=2.4)
+        extrude(amount=stem_height * 0.62, mode=Mode.SUBTRACT)
 
-    upper_rib = Location((x_pos, 0, 248.4)) * Cylinder(
-        radius=radius + 1.0,
-        height=2.4,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    upper_rib = fillet(upper_rib.edges(), radius=0.9)
+        with Locations((x_offset - x_sign * 5.8, 0.0, stem_base_z + stem_height * 0.48)):
+            Cylinder(
+                radius=2.2,
+                height=9.6,
+                rotation=(90.0, 0.0, 0.0),
+                align=(Align.CENTER, Align.CENTER, Align.CENTER),
+                mode=Mode.ADD,
+            )
 
-    # 4. Tapered conical shoulder transitioning from circular bellows into an oval sip nozzle
-    shoulder = Location((x_pos + side_sign * 0.7, 0, 250.2)) * Cone(
-        bottom_radius=radius - 0.6,
-        top_radius=radius - 2.6,
-        height=2.6,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
+    part = _require_part(spout, label)
+    part.label = label
+    part.color = color
+    return part
 
-    # 5. Outward-offset oval lip-contoured mouthpiece (Z = 251.6..255.0)
-    mouthpiece_x = x_pos + side_sign * 1.8
-    mouthpiece = Location((mouthpiece_x, 0, 251.6)) * extrude(
-        Ellipse(
-            x_radius=(radius - 1.6) * 0.68,
-            y_radius=(radius - 1.6) * 0.92,
+
+def _build_silicone_seals(
+    outer_radius: float,
+    collar_height: float,
+) -> Part:
+    """Build food-grade RTV-2 stacked spout sealing rings and IPX7 perimeter neck gasket."""
+    inner_neck_radius: float = outer_radius - 3.0
+
+    with BuildPart() as seals:
+        for x_offset in (-17.5, 17.5):
+            for ring_z in (collar_height + 2.2, collar_height + 5.2):
+                with BuildPart(mode=Mode.ADD) as ring_builder:
+                    with BuildSketch(Plane.XZ):
+                        with Locations((8.3, ring_z)):
+                            Circle(radius=1.35)
+                    revolve(axis=Axis.Z)
+                ring_part = _require_part(ring_builder, "spout_silicone_ring")
+                if seals.part is not None:
+                    seals.part.fuse(ring_part.moved(Location((x_offset, 0.0, 0.0))))
+
+        with BuildSketch(Plane.XZ):
+            with Locations((inner_neck_radius - 0.3, 4.2)):
+                Circle(radius=1.2)
+        revolve(axis=Axis.Z, mode=Mode.ADD)
+
+    part = _require_part(seals, "silicone_seals")
+    part.label = "silicone_seals"
+    part.color = Color(0.84, 0.87, 0.90, 0.92)
+    return part
+
+
+def _build_flow_separator(
+    outer_radius: float,
+    collar_height: float,
+) -> Part:
+    """Build the underside vertical septum isolating the 350 ml Hot and 400 ml Cold chambers."""
+    deck_bottom_z: float = collar_height - 4.0
+    septum_height: float = 14.5
+    septum_width: float = (outer_radius - 3.4) * 2.0
+    chamber_split_x: float = -1.8
+
+    with BuildPart() as separator:
+        with Locations((chamber_split_x, 0.0, deck_bottom_z - septum_height)):
+            Box(
+                3.2,
+                septum_width,
+                septum_height + 0.5,
+                align=(Align.CENTER, Align.CENTER, Align.MIN),
+            )
+        bottom_tip = separator.edges().sort_by(Axis.Z)[0]
+        fillet(bottom_tip, radius=1.0)
+
+    part = _require_part(separator, "flow_separator")
+    part.label = "flow_separator"
+    part.color = Color(0.16, 0.17, 0.19)
+    return part
+
+# In showcase/cad/lid.py — update build_lid_subassemblies at the bottom of the file:
+
+DEFAULT_NECK_RADIUS: float = 39.0   # Match outer neck radius in showcase/cad/body.py
+DEFAULT_LID_BASE_Z: float = 218.0   # Match top Z of bottle neck in showcase/cad/body.py
+
+
+def build_lid_subassemblies(
+    outer_radius: float = DEFAULT_NECK_RADIUS,
+    collar_height: float = 20.0,
+    canopy_gap: float = 17.0,
+    canopy_thickness: float = 5.0,
+    z_offset: float = DEFAULT_LID_BASE_Z,
+) -> list[Part]:
+    """Return all labeled DualTemp Pro lid sub-parts positioned at the bottle neck."""
+    canopy_bottom_z: float = collar_height + canopy_gap
+    sap_pocket_radius: float = 11.4
+
+    parts: list[Part] = [
+        _build_collar_and_canopy(
+            outer_radius=outer_radius,
+            collar_height=collar_height,
+            canopy_bottom_z=canopy_bottom_z,
+            canopy_thickness=canopy_thickness,
+            sap_pocket_radius=sap_pocket_radius,
         ),
-        amount=3.4,
-    )
-    mouthpiece = fillet(
-        mouthpiece.edges().filter_by(lambda e: e.center().Z > 254.8),
-        radius=0.9,
-    )
-
-    spout = (
-        valve_base
-        + hinge_knuckle
-        + lower_rib
-        + upper_rib
-        + shoulder
-        + mouthpiece
-    )
-
-    # 6. Internal flow channel: circular intake at the riser tapering to an oval sip slot at the lip
-    lower_bore = Location((x_pos, 0, 240.0)) * Cylinder(
-        radius=radius - 3.6,
-        height=11.5,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    upper_sip_slot = Location((mouthpiece_x, 0, 250.5)) * extrude(
-        Ellipse(
-            x_radius=(radius - 3.8) * 0.62,
-            y_radius=(radius - 3.8) * 0.88,
+        _build_sap_safety_lock(
+            canopy_bottom_z=canopy_bottom_z,
+            canopy_thickness=canopy_thickness,
+            pocket_radius=sap_pocket_radius,
         ),
-        amount=5.5,
-    )
-
-    return _finalize_part(spout - lower_bore - upper_sip_slot, label)
-
-
-def build_zip_spouts() -> tuple[Part, Part]:
-    """Color-coded Red (Hot, -X) and Blue (Cold, +X) independent zip spouts."""
-    hot_spout = _build_ribbed_zip_spout(
-        x_pos=-17.5, radius=10.2, side_sign=-1.0, label="hot_zip_spout"
-    )
-    cold_spout = _build_ribbed_zip_spout(
-        x_pos=15.5, radius=11.4, side_sign=1.0, label="cold_zip_spout"
-    )
-    return hot_spout, cold_spout
-
-
-def build_sap_top_assembly() -> tuple[Part, Part]:
-    """Central front-to-back SAP bridge with open left/right side bays for both spouts."""
-    top_cap = Location((0, 0, GALLERY_TOP_Z)) * Cylinder(
-        radius=35.8,
-        height=CAP_TOP_Z - GALLERY_TOP_Z,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    top_cap = chamfer(top_cap.edges(), length=1.0)
-
-    # Open left (-X, Hot) and right (+X, Cold) side bays leaving the bridge at X = -5.4..+2.2 mm
-    left_spout_bay = Location((-21.7, 0, GALLERY_TOP_Z - 0.5)) * Box(
-        32.6,
-        34.0,
-        (CAP_TOP_Z - GALLERY_TOP_Z) + 1.5,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    right_spout_bay = Location((20.1, 0, GALLERY_TOP_Z - 0.5)) * Box(
-        35.8,
-        34.0,
-        (CAP_TOP_Z - GALLERY_TOP_Z) + 1.5,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-
-    # Pill-shaped upper counterbore on the 7.6 mm central bridge for the SAP release button
-    lock_bore = Location((BRIDGE_X, 0, GALLERY_TOP_Z + 1.5)) * Box(
-        5.6,
-        18.6,
-        6.0,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    lock_bore = fillet(lock_bore.edges().filter_by(Axis.Z), radius=2.6)
-
-    # Lower guide bore for the internal yoke stem & SUS304 return spring
-    stem_bore = Location((BRIDGE_X, 0, GALLERY_TOP_Z - 0.5)) * Cylinder(
-        radius=3.2,
-        height=3.0,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    top_cap_part = _finalize_part(
-        top_cap - left_spout_bay - right_spout_bay - lock_bore - stem_bore,
-        "sap_top_cap",
-    )
-
-    sap_button = Location((BRIDGE_X, 0, GALLERY_TOP_Z + 2.2)) * Box(
-        4.8,
-        17.8,
-        7.2,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    sap_button = fillet(sap_button.edges().filter_by(Axis.Z), radius=2.2)
-    sap_button = fillet(
-        sap_button.edges().filter_by(lambda e: e.center().Z > GALLERY_TOP_Z + 8.5),
-        radius=0.7,
-    )
-    sap_button_part = _finalize_part(sap_button, "sap_safety_lock_button")
-
-    return top_cap_part, sap_button_part
-
-
-def build_sap_interlock_internals(bridge_z: float = GALLERY_TOP_Z) -> list[Part]:
-    """Internal SUS304 return spring and dual-lug locking yoke under sap_safety_lock_button."""
-    stem = Location((BRIDGE_X, 0, bridge_z - 1.5)) * Cylinder(
-        radius=1.8,
-        height=5.0,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    crossbar = Location((BRIDGE_X, 0, bridge_z - 2.4)) * Box(
-        11.6,
-        4.8,
-        1.8,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    # Twin downward locking lugs tucked behind the inner shoulders of Hot (-6.2) and Cold (+3.0) spouts
-    left_lug = Location((-6.2, 0, bridge_z - 3.6)) * Box(
-        2.4,
-        4.8,
-        2.4,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    right_lug = Location((3.0, 0, bridge_z - 3.6)) * Box(
-        2.4,
-        4.8,
-        2.4,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-
-    yoke_part = _finalize_part(
-        stem + crossbar + left_lug + right_lug,
-        "sap_locking_yoke",
-    )
-
-    spring_outer = Location((BRIDGE_X, 0, bridge_z - 0.2)) * Cylinder(
-        radius=3.0,
-        height=3.4,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    spring_inner = Location((BRIDGE_X, 0, bridge_z - 0.3)) * Cylinder(
-        radius=2.1,
-        height=3.6,
-        align=(Align.CENTER, Align.CENTER, Align.MIN),
-    )
-    spring_part = _finalize_part(
-        spring_outer - spring_inner,
-        "sap_return_spring",
-    )
-
-    return [yoke_part, spring_part]
-
-
-def build_lid_subassemblies() -> list[Part]:
-    """Return all 10 labeled dual-zip lid and SAP safety lock components."""
-    gasket = build_lid_silicone_gasket()
-    separators = build_flow_separators()
-    collar = build_lid_collar_base()
-    locks = build_individual_spout_locks()
-    hot_spout, cold_spout = build_zip_spouts()
-    top_cap, sap_button = build_sap_top_assembly()
-    yoke, spring = build_sap_interlock_internals()
-    return [
-        gasket,
-        separators,
-        collar,
-        locks,
-        hot_spout,
-        cold_spout,
-        top_cap,
-        sap_button,
-        yoke,
-        spring,
+        _build_zip_spout(
+            x_offset=-17.5,
+            collar_height=collar_height,
+            canopy_bottom_z=canopy_bottom_z,
+            label="hot_spout_red",
+            color=Color(0.84, 0.13, 0.16),
+        ),
+        _build_zip_spout(
+            x_offset=17.5,
+            collar_height=collar_height,
+            canopy_bottom_z=canopy_bottom_z,
+            label="cold_spout_blue",
+            color=Color(0.09, 0.44, 0.86),
+        ),
+        _build_silicone_seals(
+            outer_radius=outer_radius,
+            collar_height=collar_height,
+        ),
+        _build_flow_separator(
+            outer_radius=outer_radius,
+            collar_height=collar_height,
+        ),
     ]
+
+    if z_offset != 0.0:
+        parts = [part.moved(Location((0.0, 0.0, z_offset))) for part in parts]
+
+    return parts
+
+def build_lid(
+    outer_radius: float = 39.0,
+    collar_height: float = 20.0,
+    canopy_gap: float = 17.0,
+    canopy_thickness: float = 5.0,
+    z_offset: float = 0.0,
+) -> Compound:
+    """Construct the complete DualTemp Pro Dual-Zip Spout Lid Compound."""
+    return Compound(
+        label="lid",
+        children=build_lid_subassemblies(
+            outer_radius=outer_radius,
+            collar_height=collar_height,
+            canopy_gap=canopy_gap,
+            canopy_thickness=canopy_thickness,
+            z_offset=z_offset,
+        ),
+    )
+
+
+create_lid = build_lid

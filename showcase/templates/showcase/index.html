@@ -553,29 +553,42 @@
       copper_radiant_shield: new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.25, metalness: 0.95 }),
       power_button_bezel: new THREE.MeshStandardMaterial({ color: 0xe5e7eb, roughness: 0.22, metalness: 0.92 }),
       power_button_cap: new THREE.MeshStandardMaterial({ color: 0x1f2937, emissive: 0x10b981, emissiveIntensity: 0.85, roughness: 0.28, metalness: 0.5 }),
+      // Lid sub-assemblies (mapped to both new lid.py names and legacy aliases)
       lid_silicone_gasket: new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.82, metalness: 0.05 }),
+      silicone_seals: new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.78, metalness: 0.05 }),
       flow_separators: new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.45, metalness: 0.25 }),
+      flow_separator: new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.45, metalness: 0.25 }),
       lid_collar_base: new THREE.MeshStandardMaterial({ color: 0x16181e, roughness: 0.4, metalness: 0.3 }),
+      lid_collar: new THREE.MeshStandardMaterial({ color: 0x16181e, roughness: 0.4, metalness: 0.3 }),
       individual_spout_locks: new THREE.MeshStandardMaterial({ color: 0x3f3f46, roughness: 0.35, metalness: 0.45 }),
       hot_zip_spout: new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.42, metalness: 0.08 }),
+      hot_spout_red: new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.42, metalness: 0.08 }),
       cold_zip_spout: new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.42, metalness: 0.08 }),
+      cold_spout_blue: new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.42, metalness: 0.08 }),
       sap_top_cap: new THREE.MeshStandardMaterial({ color: 0x16181e, roughness: 0.4, metalness: 0.3 }),
       sap_safety_lock_button: new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.26, metalness: 0.78 }),
+      sap_safety_lock: new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.26, metalness: 0.78 }),
       sap_locking_yoke: new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0x78350f, emissiveIntensity: 0.35, roughness: 0.3, metalness: 0.75 }),
       sap_return_spring: new THREE.MeshStandardMaterial({ color: 0xe5e7eb, roughness: 0.2, metalness: 0.95 }),
     };
 
     const partMetadata = {
-      sap_safety_lock_button: { title: "Central SAP Safety Lock Button", hub: "Cavite / Valenzuela Molding", cost: "Part of ~₱180 Lid BOM", desc: "Top-mounted mechanical safety interlock. Must be depressed simultaneously (-3.2 mm stroke) to lower the internal locking yoke below both spout heels." },
+      sap_safety_lock: { title: "Central SAP Safety Lock Button", hub: "Cavite / Valenzuela Molding", cost: "Part of ~₱180 Lid BOM", desc: "Top-mounted mechanical safety interlock. Must be depressed simultaneously (-3.4 mm stroke) to lower the internal locking yoke below both spout heels." },
+      sap_safety_lock_button: { title: "Central SAP Safety Lock Button", hub: "Cavite / Valenzuela Molding", cost: "Part of ~₱180 Lid BOM", desc: "Top-mounted mechanical safety interlock. Must be depressed simultaneously (-3.4 mm stroke) to lower the internal locking yoke below both spout heels." },
       sap_locking_yoke: { title: "Dual-Lug SAP Mechanical Locking Yoke", hub: "Cavite / Valenzuela Molding", cost: "Part of ~₱180 Lid BOM", desc: "Internal T-fork with twin blocking lugs seated directly behind the Red (65°C) and Blue (4°C) spout heels to prevent accidental bag spills." },
       sap_return_spring: { title: "SUS304 Stainless Return Spring", hub: "Binondo / Valenzuela Hardware", cost: "Part of ~₱180 Lid BOM", desc: "Corrosion-resistant return spring driving the SAP yoke back into its locked detent whenever both spouts snap shut." },
       sap_top_cap: { title: "Overhanging SAP Top Cap Housing", hub: "Cavite / Laguna / Valenzuela", cost: "Part of ~₱180 Lid BOM", desc: "BPA-free PP/PETG upper bridge shielding the recessed center button and zip spouts from flat bag impacts." },
+      hot_spout_red: { title: "Red Hot-Water Zip Spout (65°C)", hub: "Cavite / Valenzuela Molding", cost: "Part of ~₱180 Lid BOM", desc: "Color-coded leak-proof spout with dual RTV-2 silicone ribs isolated exclusively to the 350 ml hot chamber." },
       hot_zip_spout: { title: "Red Hot-Water Zip Spout (65°C)", hub: "Cavite / Valenzuela Molding", cost: "Part of ~₱180 Lid BOM", desc: "Color-coded leak-proof spout with dual silicone ribs isolated exclusively to the 350 ml hot chamber." },
+      cold_spout_blue: { title: "Blue Cold-Water Zip Spout (4°C)", hub: "Cavite / Valenzuela Molding", cost: "Part of ~₱180 Lid BOM", desc: "Color-coded leak-proof spout with dual RTV-2 silicone ribs isolated exclusively to the 400 ml cold chamber." },
       cold_zip_spout: { title: "Blue Cold-Water Zip Spout (4°C)", hub: "Cavite / Valenzuela Molding", cost: "Part of ~₱180 Lid BOM", desc: "Color-coded leak-proof spout with dual silicone ribs isolated exclusively to the 400 ml cold chamber." },
-      individual_spout_locks: { title: "Individual Spout Locks & Front Release Latch", hub: "Valenzuela / Cebu Molding", cost: "Part of ~₱180 Lid BOM", desc: "Secondary per-spout mechanical latches paired with a front tactile release button." },
+      individual_spout_locks: { title: "Individual Spout Locks & Front Release Latch", hub: "Valenzuela / Cebu Molding", cost: "Part of ~₱180 Lid BOM", desc: "Secondary per-spout mechanical latches paired with front/rear tactile release buttons." },
+      lid_collar: { title: "BPA-Free PP/PETG Bridged Lid Collar & Canopy", hub: "Cavite / Laguna / Valenzuela", cost: "Part of ~₱180 Lid BOM", desc: "Threaded upper collar with twin curved struts, individual spout locks, and overhanging protective SAP top canopy." },
       lid_collar_base: { title: "BPA-Free PP/PETG Dual-Zip Lid Collar", hub: "Cavite / Laguna / Valenzuela", cost: "Part of ~₱180 Lid BOM", desc: "Threaded/sealed upper collar with open side spout galleries and central septum bridge." },
+      flow_separator: { title: "Internal Dual-Chamber Flow Separator", hub: "Cavite / Valenzuela Molding", cost: "Part of ~₱180 Lid BOM", desc: "Isolated underside septum wall ensuring 65°C hot liquids (350 ml) and 4°C cold liquids (400 ml) never mix." },
       flow_separators: { title: "Internal Dual-Channel Flow Separators", hub: "Cavite / Valenzuela Molding", cost: "Part of ~₱180 Lid BOM", desc: "Isolated internal risers ensuring 65°C hot liquids and 4°C cold liquids never mix inside the lid." },
-      lid_silicone_gasket: { title: "Food-Grade RTV-2 Silicone Chamber Gasket", hub: "Cavite / Laguna Silicone", cost: "Part of ~₱180 Lid BOM", desc: "Compression perimeter ring and central septum seal locking onto the Z = 216 mm chamber rims." },
+      silicone_seals: { title: "Food-Grade RTV-2 Silicone Spout & IPX7 Seals", hub: "Cavite / Laguna Silicone", cost: "Part of ~₱180 Lid BOM", desc: "Dual stacked toroidal spout sealing rings and IPX7 perimeter collar O-ring preventing leaks under bag pressure." },
+      lid_silicone_gasket: { title: "Food-Grade RTV-2 Silicone Chamber Gasket", hub: "Cavite / Laguna Silicone", cost: "Part of ~₱180 Lid BOM", desc: "Compression perimeter ring and central septum seal locking onto the upper chamber rims." },
       outer_body_shell: { title: "Matte Powder-Coated 304 SS Exterior Shell", hub: "Binondo / Caloocan / Mandaue", cost: "Part of ~₱400 Body BOM", desc: "750 ml ergonomic cylindrical body with tapered neck and matte black powder-coated finish." },
       silicone_grip: { title: "Textured Grey RTV-2 Silicone Grip Sleeve", hub: "Cavite / Laguna Silicone", cost: "Part of ~₱180 Silicone BOM", desc: "Diamond-knurled food-grade silicone middle sleeve for non-slip handling." },
       hot_chamber_liner: { title: "350 ml Hot Chamber (316 Surgical SS)", hub: "Binondo / Valenzuela / Cebu", cost: "Part of ~₱400 Body BOM", desc: "316 surgical-grade stainless steel chamber maintained at a fixed optimal 65°C (149°F)." },
@@ -626,6 +639,14 @@
       const meshes = partMeshes[name] || [];
       for (const m of meshes) {
         box.expandByObject(m);
+      }
+      return box;
+    }
+
+    function computeCombinedBox(names) {
+      const box = new THREE.Box3();
+      for (const n of names) {
+        box.union(computePartWorldBox(n));
       }
       return box;
     }
@@ -688,26 +709,26 @@
         });
 
         // Compute exact hinge pivot coordinates from spout world bounding boxes
-        const hotBox = computePartWorldBox("hot_zip_spout");
-        const coldBox = computePartWorldBox("cold_zip_spout");
+        const hotBox = computeCombinedBox(["hot_spout_red", "hot_zip_spout"]);
+        const coldBox = computeCombinedBox(["cold_spout_blue", "cold_zip_spout"]);
         if (!hotBox.isEmpty()) {
           const c = hotBox.getCenter(new THREE.Vector3());
-          hotHingePivot.set(hotBox.min.x + 2.2, hotBox.min.y + 1.5, c.z);
+          hotHingePivot.set(hotBox.max.x - 2.2, hotBox.min.y + 4.5, c.z);
         }
         if (!coldBox.isEmpty()) {
           const c = coldBox.getCenter(new THREE.Vector3());
-          coldHingePivot.set(coldBox.max.x - 2.2, coldBox.min.y + 1.5, c.z);
+          coldHingePivot.set(coldBox.min.x + 2.2, coldBox.min.y + 4.5, c.z);
         }
 
-        // Build procedural SAP Locking Yoke & Return Spring if not yet exported in .glb
-        const btnBox = computePartWorldBox("sap_safety_lock_button");
-        const topCapBox = computePartWorldBox("sap_top_cap");
+        // Build procedural SAP Locking Yoke & Return Spring inside the canopy bridge
+        const btnBox = computeCombinedBox(["sap_safety_lock", "sap_safety_lock_button"]);
+        const topCapBox = computeCombinedBox(["sap_top_cap", "lid_collar"]);
         if (!partMeshes.sap_locking_yoke && !btnBox.isEmpty() && !topCapBox.isEmpty()) {
           const btnCenter = btnBox.getCenter(new THREE.Vector3());
-          const bridgeBottomY = topCapBox.min.y;
+          const bridgeBottomY = topCapBox.max.y - 6.0;
           const yokeGroup = new THREE.Group();
 
-          const stemHeight = Math.max(8, btnBox.min.y - bridgeBottomY + 3.5);
+          const stemHeight = Math.max(7, btnBox.min.y - bridgeBottomY + 2.5);
           const stem = new THREE.Mesh(
             new THREE.CylinderGeometry(2.3, 2.3, stemHeight, 20),
             materials.sap_locking_yoke
@@ -715,9 +736,9 @@
           stem.position.set(btnCenter.x, bridgeBottomY - 1.5 + stemHeight * 0.5, btnCenter.z);
           yokeGroup.add(stem);
 
-          const leftInnerX = !hotBox.isEmpty() ? hotBox.max.x - 2.5 : -14;
-          const rightInnerX = !coldBox.isEmpty() ? coldBox.min.x + 2.5 : 14;
-          const span = Math.max(24, rightInnerX - leftInnerX + 4);
+          const leftInnerX = !hotBox.isEmpty() ? hotBox.max.x - 2.2 : -12;
+          const rightInnerX = !coldBox.isEmpty() ? coldBox.min.x + 2.2 : 12;
+          const span = Math.max(22, rightInnerX - leftInnerX + 4);
           const bar = new THREE.Mesh(
             new THREE.BoxGeometry(span, 2.2, 5.2),
             materials.sap_locking_yoke
@@ -725,13 +746,13 @@
           bar.position.set(btnCenter.x, bridgeBottomY - 1.2, btnCenter.z);
           yokeGroup.add(bar);
 
-          // Twin downward locking lugs sitting directly behind the Hot and Cold spout heels
+          // Twin downward locking lugs sitting behind the Hot and Cold spout inner heels
           for (const lugX of [leftInnerX, rightInnerX]) {
             const lug = new THREE.Mesh(
-              new THREE.BoxGeometry(3.8, 4.4, 5.2),
+              new THREE.BoxGeometry(3.6, 4.2, 5.2),
               materials.sap_locking_yoke
             );
-            lug.position.set(lugX, bridgeBottomY - 3.2, btnCenter.z);
+            lug.position.set(lugX, bridgeBottomY - 3.0, btnCenter.z);
             yokeGroup.add(lug);
           }
 
@@ -742,7 +763,7 @@
           // Helical coil return spring concentric with the center guide post
           const springGroup = new THREE.Group();
           const turns = 5;
-          const springH = Math.max(6, stemHeight * 0.72);
+          const springH = Math.max(5.5, stemHeight * 0.72);
           for (let i = 0; i < turns; i++) {
             const coil = new THREE.Mesh(
               new THREE.TorusGeometry(3.8, 0.55, 10, 24),
@@ -861,16 +882,23 @@
       silicone_grip: new THREE.Vector3(0, 46, -158),
       power_button_bezel: new THREE.Vector3(0, 46, 92),
       power_button_cap: new THREE.Vector3(0, 46, 114),
+      // Lid sub-assemblies (both new lid.py names & legacy names)
       lid_silicone_gasket: new THREE.Vector3(0, 76, 0),
+      silicone_seals: new THREE.Vector3(0, 92, 0),
       flow_separators: new THREE.Vector3(0, 102, 0),
+      flow_separator: new THREE.Vector3(0, 78, 0),
       lid_collar_base: new THREE.Vector3(0, 130, 0),
+      lid_collar: new THREE.Vector3(0, 130, 0),
       individual_spout_locks: new THREE.Vector3(0, 134, 54),
       hot_zip_spout: new THREE.Vector3(-42, 160, 0),
+      hot_spout_red: new THREE.Vector3(-46, 160, 0),
       cold_zip_spout: new THREE.Vector3(42, 160, 0),
+      cold_spout_blue: new THREE.Vector3(46, 160, 0),
       sap_top_cap: new THREE.Vector3(0, 192, 0),
       sap_locking_yoke: new THREE.Vector3(0, 206, 0),
       sap_return_spring: new THREE.Vector3(0, 214, 0),
       sap_safety_lock_button: new THREE.Vector3(0, 224, 0),
+      sap_safety_lock: new THREE.Vector3(0, 224, 0),
     };
 
     // Two-stage SAP Interlock State Machine
@@ -881,8 +909,8 @@
 
     // Animated kinematic values
     let sapStrokeMm = 0;      // 0 mm (resting locked) -> 3.4 mm (depressed unlocked)
-    let hotAngleRad = 0;      // 0 rad (closed) -> +0.66 rad (~38 deg open around left hinge)
-    let coldAngleRad = 0;     // 0 rad (closed) -> -0.66 rad (~38 deg open around right hinge)
+    let hotAngleRad = 0;      // 0 rad (closed) -> +0.85 rad (outward tilt around left hinge)
+    let coldAngleRad = 0;     // 0 rad (closed) -> -0.85 rad (outward tilt around right hinge)
     let hotRecoilTimer = 0;
     let coldRecoilTimer = 0;
     let lugFlashTimer = 0;
@@ -1005,7 +1033,7 @@
           const targetWq = baseWq.clone();
 
           // Stage 1: SAP Safety Lock Button, Locking Yoke & Return Spring vertical travel
-          if (name === "sap_safety_lock_button" || name === "sap_locking_yoke") {
+          if (name === "sap_safety_lock_button" || name === "sap_safety_lock" || name === "sap_locking_yoke") {
             targetWp.y -= sapStrokeMm;
           } else if (name === "sap_return_spring") {
             targetWp.y -= sapStrokeMm * 0.5;
@@ -1013,12 +1041,12 @@
           }
 
           // Stage 2: True hinge-pin pivot rotation for Hot (left) & Cold (right) spouts
-          if (name === "hot_zip_spout" && Math.abs(hotAngleRad) > 0.0001) {
+          if ((name === "hot_zip_spout" || name === "hot_spout_red") && Math.abs(hotAngleRad) > 0.0001) {
             const pivot = hotHingePivot.clone().addScaledVector(offset, explodeT);
             const qTilt = new THREE.Quaternion().setFromAxisAngle(zAxis, hotAngleRad);
             targetWp.sub(pivot).applyQuaternion(qTilt).add(pivot);
             targetWq.premultiply(qTilt);
-          } else if (name === "cold_zip_spout" && Math.abs(coldAngleRad) > 0.0001) {
+          } else if ((name === "cold_zip_spout" || name === "cold_spout_blue") && Math.abs(coldAngleRad) > 0.0001) {
             const pivot = coldHingePivot.clone().addScaledVector(offset, explodeT);
             const qTilt = new THREE.Quaternion().setFromAxisAngle(zAxis, coldAngleRad);
             targetWp.sub(pivot).applyQuaternion(qTilt).add(pivot);
@@ -1050,15 +1078,17 @@
     // Full Shell X-Ray vs. SAP Top Cap Cutaway
     let fullXray = false;
     let capCutaway = false;
-    const shellKeys = ["base_housing", "outer_body_shell", "silicone_grip", "lid_collar_base", "sap_top_cap"];
+    const shellKeys = ["base_housing", "outer_body_shell", "silicone_grip", "lid_collar_base", "lid_collar", "sap_top_cap"];
     const xrayBtn = document.getElementById("xray-btn");
     const capXrayBtn = document.getElementById("cap-xray-btn");
 
     function syncTransparencyMaterials() {
       for (const key of shellKeys) {
-        const isTransparent = fullXray || (key === "sap_top_cap" && capCutaway);
+        if (!materials[key]) continue;
+        const isCapHousing = key === "sap_top_cap" || key === "lid_collar";
+        const isTransparent = fullXray || (isCapHousing && capCutaway);
         materials[key].transparent = isTransparent;
-        materials[key].opacity = isTransparent ? (key === "sap_top_cap" && capCutaway && !fullXray ? 0.24 : 0.2) : 1.0;
+        materials[key].opacity = isTransparent ? (isCapHousing && capCutaway && !fullXray ? 0.24 : 0.2) : 1.0;
         materials[key].depthWrite = !isTransparent;
         materials[key].needsUpdate = true;
       }
@@ -1197,14 +1227,14 @@
       sapStrokeMm += (targetStroke - sapStrokeMm) * Math.min(1, dt * 14);
 
       // Compute spout angles with blocked-recoil shake when hitting the raised SAP lug
-      let targetHotAngle = hotSpoutOpen ? 1.42 : 0;
+      let targetHotAngle = hotSpoutOpen ? 0.85 : 0;
       if (hotRecoilTimer > 0) {
         hotRecoilTimer = Math.max(0, hotRecoilTimer - dt);
         targetHotAngle = Math.sin(hotRecoilTimer * 42) * 0.065 * (hotRecoilTimer / 0.45);
       }
       hotAngleRad += (targetHotAngle - hotAngleRad) * Math.min(1, dt * 16);
 
-      let targetColdAngle = coldSpoutOpen ? -1.42 : 0;
+      let targetColdAngle = coldSpoutOpen ? -0.85 : 0;
       if (coldRecoilTimer > 0) {
         coldRecoilTimer = Math.max(0, coldRecoilTimer - dt);
         targetColdAngle = -Math.sin(coldRecoilTimer * 42) * 0.065 * (coldRecoilTimer / 0.45);
