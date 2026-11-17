@@ -14,24 +14,27 @@
     }
   </script>
   <style>
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; width: 100%; height: 100%; font-family: system-ui, sans-serif; background: #12161f; color: #f3f4f6; }
-    body { display: flex; overflow: hidden; }
-    #viewer { flex: 1; height: 100vh; position: relative; min-width: 0; }
-    #status { position: absolute; top: 16px; left: 16px; padding: 8px 12px; border-radius: 6px; background: rgba(15, 23, 42, 0.88); border: 1px solid #334155; font-size: 0.85rem; z-index: 10; }
-    #sidebar { width: 360px; height: 100vh; padding: 24px; background: #181d27; border-left: 1px solid #2b3344; overflow-y: auto; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: #131720; color: #f3f4f6; display: flex; height: 100vh; overflow: hidden; }
+    #viewer { flex: 1; position: relative; min-width: 0; }
+    #status-badge {
+      position: absolute; bottom: 16px; left: 16px; z-index: 10;
+      padding: 6px 12px; border-radius: 6px; font-size: 0.78rem;
+      background: rgba(22, 25, 32, 0.88); border: 1px solid #2d3340; color: #d1d5db;
+    }
+    #sidebar { width: 360px; padding: 24px; background: #161920; border-left: 1px solid #262b36; overflow-y: auto; }
     .control { margin-bottom: 20px; }
     label { display: block; font-size: 0.85rem; color: #9ca3af; margin-bottom: 6px; }
     input[type="range"] { width: 100%; }
     button { width: 100%; padding: 10px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    button:hover { background: #1d4ed8; }
     table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.82rem; }
-    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #2b3344; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #262b36; }
     th { color: #9ca3af; font-weight: 600; }
   </style>
 </head>
 <body>
   <div id="viewer">
-    <div id="status">Loading 3D CAD assembly...</div>
+    <div id="status-badge">Loading 3D assembly…</div>
   </div>
   <aside id="sidebar">
     <h2>DualTemp Pro Smart Bottle</h2>
@@ -48,6 +51,7 @@
         <tr><th>Subsystem</th><th>Specification</th></tr>
       </thead>
       <tbody>
+        <tr><td>Dual-Zip Lid & Lock</td><td>Central SAP Lock · Red/Blue Spouts · PP/PETG</td></tr>
         <tr><td>Hot Chamber (-X)</td><td>350 ml · Fixed 65°C · 316 SS</td></tr>
         <tr><td>Cold Chamber (+X)</td><td>400 ml · Fixed 4°C · 316 SS</td></tr>
         <tr><td>Thermoelectric Core</td><td>TEC1-12706 Peltier + Al Heatsinks</td></tr>
@@ -64,59 +68,75 @@
     import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
     const container = document.getElementById("viewer");
-    const statusEl = document.getElementById("status");
+    const statusBadge = document.getElementById("status-badge");
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x161b26);
+    scene.background = new THREE.Color(0x131720);
 
-    const width = container.clientWidth || (window.innerWidth - 360);
-    const height = container.clientHeight || window.innerHeight;
-
-    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 5000);
-    camera.position.set(220, 175, 250);
+    const camera = new THREE.PerspectiveCamera(
+      38,
+      container.clientWidth / container.clientHeight,
+      0.001,
+      100
+    );
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(width, height);
+    renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.25;
+    renderer.toneMappingExposure = 1.15;
     container.appendChild(renderer.domElement);
 
-    // Studio IBL environment so metallic materials never render black
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    // Studio IBL environment so metallic materials reflect light properly
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 110, 0);
-    controls.update();
+    controls.enableDamping = true;
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
-    keyLight.position.set(160, 280, 200);
+    keyLight.position.set(1.5, 3.0, 2.0);
     scene.add(keyLight);
 
-    const parts = {};
+    const rimLight = new THREE.DirectionalLight(0x93c5fd, 0.8);
+    rimLight.position.set(-1.5, 1.5, -1.5);
+    scene.add(rimLight);
+
+    const partNodes = {};
     const basePositions = {};
-    const fallbackMaterial = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.4, metalness: 0.5 });
+    let unitScale = 0.001; // Default mm -> m scale, updated automatically from Box3
 
     const materials = {
-      base_housing: new THREE.MeshStandardMaterial({ color: 0x2a303c, roughness: 0.42, metalness: 0.65 }),
+      // Base subsystem
+      base_housing: new THREE.MeshStandardMaterial({ color: 0x2b303c, roughness: 0.45, metalness: 0.65 }),
       battery_pack: new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.35, metalness: 0.2 }),
-      controller_pcb: new THREE.MeshStandardMaterial({ color: 0x059669, roughness: 0.4, metalness: 0.4 }),
-      usbc_port: new THREE.MeshStandardMaterial({ color: 0xe5e7eb, roughness: 0.25, metalness: 0.9 }),
-      usbc_silicone_plug: new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.85, metalness: 0.0 }),
-      thermal_bulkhead: new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.4, metalness: 0.75 }),
-      peltier_module: new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3, metalness: 0.1 }),
-      hot_heatsink: new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.3, metalness: 0.85 }),
+      controller_pcb: new THREE.MeshStandardMaterial({ color: 0x059669, roughness: 0.4, metalness: 0.35 }),
+      usbc_port: new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.25, metalness: 0.9 }),
+      usbc_silicone_plug: new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.85, metalness: 0.0 }),
+      // Thermal subsystem
+      thermal_bulkhead: new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.4, metalness: 0.75 }),
+      peltier_module: new THREE.MeshStandardMaterial({ color: 0xf9fafb, roughness: 0.3, metalness: 0.1 }),
+      hot_heatsink: new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.3, metalness: 0.85 }),
       cold_heatsink: new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3, metalness: 0.85 }),
       ntc_sensor_harness: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.3 }),
-      outer_body_shell: new THREE.MeshStandardMaterial({ color: 0x2a303c, roughness: 0.42, metalness: 0.65 }),
+      // Dual-chamber body subsystem
+      outer_body_shell: new THREE.MeshStandardMaterial({ color: 0x2b303c, roughness: 0.45, metalness: 0.65 }),
       silicone_grip: new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.85, metalness: 0.05 }),
-      hot_chamber_liner: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, emissive: 0x7f1d1d, emissiveIntensity: 0.45, roughness: 0.22, metalness: 0.9 }),
-      cold_chamber_liner: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, emissive: 0x075985, emissiveIntensity: 0.45, roughness: 0.22, metalness: 0.9 }),
+      hot_chamber_liner: new THREE.MeshStandardMaterial({ color: 0xe4e4e7, emissive: 0x7f1d1d, emissiveIntensity: 0.35, roughness: 0.22, metalness: 0.9 }),
+      cold_chamber_liner: new THREE.MeshStandardMaterial({ color: 0xe4e4e7, emissive: 0x0c4a6e, emissiveIntensity: 0.35, roughness: 0.22, metalness: 0.9 }),
       copper_radiant_shield: new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.25, metalness: 0.95 }),
-      power_button_bezel: new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.22, metalness: 0.9 }),
-      power_button_cap: new THREE.MeshStandardMaterial({ color: 0x1f2937, emissive: 0x10b981, emissiveIntensity: 0.85, roughness: 0.3, metalness: 0.5 }),
+      power_button_bezel: new THREE.MeshStandardMaterial({ color: 0xe5e7eb, roughness: 0.22, metalness: 0.92 }),
+      power_button_cap: new THREE.MeshStandardMaterial({ color: 0x1f2937, emissive: 0x10b981, emissiveIntensity: 0.85, roughness: 0.3, metalness: 0.4 }),
+      // Dual-zip lid & SAP safety lock subsystem
+      lid_silicone_gasket: new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.82, metalness: 0.05 }),
+      flow_separators: new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.45, metalness: 0.2 }),
+      lid_collar_base: new THREE.MeshStandardMaterial({ color: 0x272c36, roughness: 0.42, metalness: 0.3 }),
+      individual_spout_locks: new THREE.MeshStandardMaterial({ color: 0x3f3f46, roughness: 0.35, metalness: 0.45 }),
+      hot_zip_spout: new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.45, metalness: 0.08 }),
+      cold_zip_spout: new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.45, metalness: 0.08 }),
+      sap_top_cap: new THREE.MeshStandardMaterial({ color: 0x272c36, roughness: 0.42, metalness: 0.3 }),
+      sap_safety_lock_button: new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.28, metalness: 0.75 }),
     };
 
     const modelUrl = "{% static 'models/dualtemp_bottle.glb' %}";
@@ -124,44 +144,61 @@
     new GLTFLoader().load(
       modelUrl,
       (gltf) => {
-        let meshCount = 0;
-        gltf.scene.traverse((child) => {
-          if (child.isMesh) {
-            meshCount++;
-            const label = materials[child.name] ? child.name : child.parent?.name;
-            child.material = (label && materials[label]) ? materials[label] : fallbackMaterial;
-            if (label) {
-              parts[label] = child;
-              basePositions[label] = child.position.clone();
-            }
-          }
-        });
-
         scene.add(gltf.scene);
 
-        // Auto-frame camera to model bounds
-        const box = new THREE.Box3().setFromObject(gltf.scene);
-        if (!box.isEmpty()) {
-          const center = box.getCenter(new THREE.Vector3());
-          const size = box.getSize(new THREE.Vector3());
-          const maxDim = Math.max(size.x, size.y, size.z);
-          controls.target.copy(center);
-          camera.position.set(center.x + maxDim * 1.15, center.y + maxDim * 0.45, center.z + maxDim * 1.35);
-          controls.update();
+        // Bind materials and base positions whether label sits on Group or Mesh
+        let matchedCount = 0;
+        for (const [name, mat] of Object.entries(materials)) {
+          const node = gltf.scene.getObjectByName(name);
+          if (node) {
+            node.traverse((child) => {
+              if (child.isMesh) {
+                child.material = mat;
+              }
+            });
+            partNodes[name] = node;
+            basePositions[name] = node.position.clone();
+            matchedCount++;
+          }
         }
 
-        statusEl.textContent = `Loaded ${meshCount} meshes (${Object.keys(parts).length} labeled parts)`;
-        setTimeout(() => { statusEl.style.display = "none"; }, 2500);
+        // Auto-frame camera based on true exported bounding box (handles m or mm)
+        const box = new THREE.Box3().setFromObject(gltf.scene);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 0.261;
+
+        unitScale = maxDim / 261.0;
+
+        const fovRad = THREE.MathUtils.degToRad(camera.fov);
+        const distance = (maxDim / (2 * Math.tan(fovRad / 2))) * 1.45;
+
+        camera.near = maxDim / 500;
+        camera.far = maxDim * 50;
+        camera.position.set(
+          center.x + distance * 0.72,
+          center.y + distance * 0.38,
+          center.z + distance * 0.85
+        );
+        camera.updateProjectionMatrix();
+
+        controls.target.copy(center);
+        controls.minDistance = maxDim * 0.4;
+        controls.maxDistance = maxDim * 8;
+        controls.update();
+
+        statusBadge.textContent = `Loaded ${matchedCount}/25 sub-assemblies (${size.y.toFixed(3)} units tall)`;
       },
       undefined,
       (err) => {
-        console.error("GLB load error:", err);
-        statusEl.style.borderColor = "#ef4444";
-        statusEl.textContent = `Error loading ${modelUrl} — check browser Console / run build_model`;
+        console.error("GLTF load error:", err);
+        statusBadge.style.color = "#f87171";
+        statusBadge.textContent = `Failed to load ${modelUrl} — run: uv run python manage.py build_model`;
       }
     );
 
-    const offsets = {
+    // Millimeter offsets automatically scaled by unitScale (0.001 when glTF is in meters)
+    const offsetsMm = {
       base_housing: new THREE.Vector3(0, -45, 0),
       battery_pack: new THREE.Vector3(0, -25, -24),
       controller_pcb: new THREE.Vector3(0, -25, 24),
@@ -179,19 +216,35 @@
       silicone_grip: new THREE.Vector3(0, 82, -32),
       power_button_bezel: new THREE.Vector3(0, 82, 34),
       power_button_cap: new THREE.Vector3(0, 82, 46),
+      lid_silicone_gasket: new THREE.Vector3(0, 108, 0),
+      flow_separators: new THREE.Vector3(0, 126, 0),
+      lid_collar_base: new THREE.Vector3(0, 148, 0),
+      individual_spout_locks: new THREE.Vector3(0, 150, 32),
+      hot_zip_spout: new THREE.Vector3(-24, 170, 0),
+      cold_zip_spout: new THREE.Vector3(24, 170, 0),
+      sap_top_cap: new THREE.Vector3(0, 192, 0),
+      sap_safety_lock_button: new THREE.Vector3(0, 214, 0),
     };
 
     document.getElementById("explode").addEventListener("input", (e) => {
       const t = parseFloat(e.target.value);
-      for (const [name, mesh] of Object.entries(parts)) {
-        if (offsets[name]) {
-          mesh.position.copy(basePositions[name]).addScaledVector(offsets[name], t);
+      for (const [name, node] of Object.entries(partNodes)) {
+        if (offsetsMm[name]) {
+          node.position
+            .copy(basePositions[name])
+            .addScaledVector(offsetsMm[name], t * unitScale);
         }
       }
     });
 
     let xray = false;
-    const shellKeys = ["base_housing", "outer_body_shell", "silicone_grip"];
+    const shellKeys = [
+      "base_housing",
+      "outer_body_shell",
+      "silicone_grip",
+      "lid_collar_base",
+      "sap_top_cap",
+    ];
     document.getElementById("xray-btn").addEventListener("click", () => {
       xray = !xray;
       for (const key of shellKeys) {
@@ -203,15 +256,14 @@
     });
 
     window.addEventListener("resize", () => {
-      const w = container.clientWidth || (window.innerWidth - 360);
-      const h = container.clientHeight || window.innerHeight;
-      camera.aspect = w / h;
+      camera.aspect = container.clientWidth / container.clientHeight;
       camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
+      renderer.setSize(container.clientWidth, container.clientHeight);
     });
 
     function animate() {
       requestAnimationFrame(animate);
+      controls.update();
       renderer.render(scene, camera);
     }
     animate();

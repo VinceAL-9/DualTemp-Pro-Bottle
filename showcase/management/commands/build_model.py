@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 from showcase.cad.base import build_base_subassemblies
 from showcase.cad.body import build_body_subassemblies
+from showcase.cad.lid import build_lid_subassemblies
 from showcase.cad.thermal import build_thermal_subassemblies
 
 
@@ -23,6 +24,7 @@ class Command(BaseCommand):
             *build_base_subassemblies(),
             *build_thermal_subassemblies(),
             *build_body_subassemblies(),
+            *build_lid_subassemblies(),
         ]
         assembly = Compound(label="dualtemp_pro_bottle", children=parts)
 
