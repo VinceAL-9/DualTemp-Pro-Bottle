@@ -1,0 +1,27 @@
+databases:
+  - name: showcase_db
+    plan: free
+    databaseName: showcase
+    user: showcase_user
+
+services:
+  - type: web
+    name: sip-dualtemp-pro
+    region: singapore
+    runtime: python
+    plan: free
+    buildCommand: pip install uv && uv sync --locked && python manage.py collectstatic --no-input && python manage.py migrate
+    startCommand: uv run gunicorn showcase.asgi:application -k uvicorn.workers.UvicornWorker
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: showcase_db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com"
