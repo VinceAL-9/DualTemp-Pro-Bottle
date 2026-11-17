@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DualTemp Pro — 3D Hardware Showcase</title>
+  <title>SIP DualTemp Pro — Interactive 3D Product & Pitch Showcase</title>
   <script type="importmap">
     {
       "imports": {
@@ -14,255 +14,1227 @@
     }
   </script>
   <style>
-    body { margin: 0; font-family: system-ui, sans-serif; background: #131720; color: #f3f4f6; display: flex; height: 100vh; overflow: hidden; }
-    #viewer { flex: 1; position: relative; min-width: 0; }
-    #status-badge {
-      position: absolute; bottom: 16px; left: 16px; z-index: 10;
-      padding: 6px 12px; border-radius: 6px; font-size: 0.78rem;
-      background: rgba(22, 25, 32, 0.88); border: 1px solid #2d3340; color: #d1d5db;
+    :root {
+      --bg: #0b0d12;
+      --panel: #131720;
+      --card: #191f2c;
+      --border: #262e3f;
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --accent: #2563eb;
+      --hot: #ef4444;
+      --cold: #38bdf8;
+      --green: #10b981;
+      --amber: #f59e0b;
     }
-    #sidebar { width: 360px; padding: 24px; background: #161920; border-left: 1px solid #262b36; overflow-y: auto; }
-    .control { margin-bottom: 20px; }
-    label { display: block; font-size: 0.85rem; color: #9ca3af; margin-bottom: 6px; }
-    input[type="range"] { width: 100%; }
-    button { width: 100%; padding: 10px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
-    button:hover { background: #1d4ed8; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.82rem; }
-    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #262b36; }
-    th { color: #9ca3af; font-weight: 600; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #viewer-wrap {
+      flex: 1;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    #viewer {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+    #viewer:active { cursor: grabbing; }
+    #viewer-status {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(19, 23, 32, 0.95);
+      border: 1px solid #374151;
+      padding: 16px 22px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      max-width: 440px;
+      text-align: center;
+      line-height: 1.5;
+      z-index: 20;
+    }
+    #viewer-status.hidden { display: none; }
+    #viewer-status.error { border-color: #ef4444; color: #fca5a5; }
+    .hud-top {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .pill {
+      background: rgba(19, 23, 32, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dot-hot { width: 8px; height: 8px; border-radius: 50%; background: var(--hot); }
+    .dot-cold { width: 8px; height: 8px; border-radius: 50%; background: var(--cold); }
+    .dot-green { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+    .camera-bar {
+      position: absolute;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      background: rgba(19, 23, 32, 0.9);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border);
+      padding: 8px;
+      border-radius: 12px;
+      z-index: 10;
+    }
+    .cam-btn {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .cam-btn:hover, .cam-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    #sidebar {
+      width: 430px;
+      background: var(--panel);
+      border-left: 1px solid var(--border);
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .brand-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .brand-header h1 { margin: 0; font-size: 1.22rem; line-height: 1.2; }
+    .subtitle { margin: 4px 0 0; font-size: 0.79rem; color: var(--muted); }
+    .srp-badge {
+      background: rgba(16, 185, 129, 0.14);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .srp-badge span { display: block; font-size: 0.68rem; font-weight: 500; color: var(--muted); }
+    .control-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .box-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+    .slider-row label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.79rem;
+      color: var(--muted);
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+    input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+    .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .action-btn {
+      padding: 8px 9px;
+      background: #1f2737;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.76rem;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+    .action-btn:hover { border-color: var(--accent); }
+    .action-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .action-btn.hot-active { background: #dc2626; border-color: #ef4444; color: #fff; }
+    .action-btn.cold-active { background: #0284c7; border-color: #38bdf8; color: #fff; }
+    .sap-telemetry {
+      background: rgba(11, 13, 18, 0.75);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.75rem;
+      line-height: 1.4;
+      color: #d1d5db;
+    }
+    .sap-telemetry.blocked {
+      border-color: rgba(239, 68, 68, 0.65);
+      background: rgba(127, 29, 29, 0.25);
+      color: #fecaca;
+    }
+    .sap-telemetry.unlocked {
+      border-color: rgba(16, 185, 129, 0.55);
+      background: rgba(6, 78, 59, 0.25);
+      color: #a7f3d0;
+    }
+    .inspector-card {
+      background: rgba(37, 99, 235, 0.1);
+      border: 1px solid rgba(37, 99, 235, 0.35);
+      border-radius: 10px;
+      padding: 11px 13px;
+    }
+    .inspector-tag {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #60a5fa;
+      font-weight: 700;
+    }
+    .inspector-title { font-size: 0.92rem; font-weight: 700; margin: 3px 0; }
+    .inspector-meta { font-size: 0.77rem; color: #d1d5db; line-height: 1.42; }
+    .tabs {
+      display: flex;
+      gap: 6px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      padding: 7px 6px;
+      border-radius: 6px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .tab-btn.active { background: var(--card); border-color: var(--border); color: var(--text); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.77rem; }
+    th, td {
+      text-align: left;
+      padding: 7px 6px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 600; }
+    .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+    .kpi {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+    }
+    .kpi strong { display: block; font-size: 0.9rem; color: #fff; }
+    .kpi span { font-size: 0.67rem; color: var(--muted); }
+    .step-list { margin: 0; padding-left: 18px; font-size: 0.77rem; line-height: 1.48; color: #d1d5db; }
+    .step-list li { margin-bottom: 7px; }
   </style>
 </head>
 <body>
-  <div id="viewer">
-    <div id="status-badge">Loading 3D assembly…</div>
-  </div>
-  <aside id="sidebar">
-    <h2>DualTemp Pro Smart Bottle</h2>
-    <div class="control">
-      <label for="explode">Exploded Assembly View</label>
-      <input id="explode" type="range" min="0" max="1" step="0.01" value="0" />
-    </div>
-    <div class="control">
-      <button id="xray-btn" type="button">Toggle Shell X-Ray</button>
+  <div id="viewer-wrap">
+    <div class="hud-top">
+      <div class="pill"><span class="dot-hot"></span> Hot: 350 ml · 65°C</div>
+      <div class="pill"><span class="dot-cold"></span> Cold: 400 ml · 4°C</div>
+      <div class="pill"><span class="dot-green"></span> <span id="part-count-pill">Loading CAD…</span></div>
     </div>
 
-    <table>
-      <thead>
-        <tr><th>Subsystem</th><th>Specification</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>Dual-Zip Lid & Lock</td><td>Central SAP Lock · Red/Blue Spouts · PP/PETG</td></tr>
-        <tr><td>Hot Chamber (-X)</td><td>350 ml · Fixed 65°C · 316 SS</td></tr>
-        <tr><td>Cold Chamber (+X)</td><td>400 ml · Fixed 4°C · 316 SS</td></tr>
-        <tr><td>Thermoelectric Core</td><td>TEC1-12706 Peltier + Al Heatsinks</td></tr>
-        <tr><td>Battery & Charging</td><td>10,000mAh LiPo · 30W PD USB-C</td></tr>
-        <tr><td>Exterior & Grip</td><td>Matte 304 SS · RTV-2 Silicone · IPX7</td></tr>
-      </tbody>
-    </table>
+    <div id="viewer-status">Loading DualTemp Pro 3D assembly…</div>
+    <div id="viewer"></div>
+
+    <div class="camera-bar">
+      <button class="cam-btn active" data-view="hero">1. Full Bottle</button>
+      <button class="cam-btn" data-view="lid">2. Dual-Zip Lid & SAP Lock</button>
+      <button class="cam-btn" data-view="core">3. Peltier & Dual Chambers</button>
+      <button class="cam-btn" data-view="base">4. 10,000mAh Base & USB-C</button>
+    </div>
+  </div>
+
+  <aside id="sidebar">
+    <div class="brand-header">
+      <div>
+        <h1>SIP DualTemp Pro</h1>
+        <p class="subtitle">Portable Dual-Chamber Active Thermal Dispenser</p>
+      </div>
+      <div class="srp-badge">
+        ₱2,499 SRP
+        <span>Promo: ₱2,199</span>
+      </div>
+    </div>
+
+    <div class="control-box">
+      <div class="slider-row">
+        <label for="explode">
+          <span>Exploded Assembly View</span>
+          <span id="explode-val">0%</span>
+        </label>
+        <input id="explode" type="range" min="0" max="1" step="0.01" value="0" />
+      </div>
+      <div class="btn-grid">
+        <button id="xray-btn" class="action-btn" type="button">Full Shell X-Ray: OFF</button>
+        <button id="cap-xray-btn" class="action-btn" type="button">SAP Cap Cutaway: OFF</button>
+      </div>
+    </div>
+
+    <div class="control-box">
+      <div class="box-header">
+        <span>Two-Stage SAP Safety Interlock</span>
+        <span id="sap-badge-state" style="color:#f59e0b;">LOCKED</span>
+      </div>
+      <div class="btn-grid">
+        <button id="sap-depress-btn" class="action-btn" type="button">1. Depress SAP Lock</button>
+        <button id="sap-demo-btn" class="action-btn" type="button">▶ Auto-Demo Interlock</button>
+        <button id="hot-spout-btn" class="action-btn" type="button">2A. Flip Hot Spout (65°C)</button>
+        <button id="cold-spout-btn" class="action-btn" type="button">2B. Flip Cold Spout (4°C)</button>
+      </div>
+      <div id="sap-telemetry" class="sap-telemetry">
+        <strong>Resting Backpack-Safe State:</strong> Internal SUS304 return spring holds the SAP locking lugs behind both spout heels. Depress <em>1. Depress SAP Lock</em> (or hold <code>Space</code>) before flipping a spout.
+      </div>
+    </div>
+
+    <div class="inspector-card">
+      <div class="inspector-tag" id="insp-tag">Interactive CAD Inspector · Click any part</div>
+      <div class="inspector-title" id="insp-title">DualTemp Pro Mechanical Assembly</div>
+      <div class="inspector-meta" id="insp-meta">
+        Click any component on the 3D bottle (or press keys 1–4) to inspect its surgical-grade materials, Philippine supply hub, and unit BOM allocation.
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="specs">Hardware Specs</button>
+      <button class="tab-btn" data-tab="roadmap">PH Supply Chain</button>
+      <button class="tab-btn" data-tab="economics">BOM & Margin</button>
+    </div>
+
+    <div id="tab-specs" class="tab-panel active">
+      <table>
+        <thead>
+          <tr><th>Subsystem</th><th>Finalized Specification</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Total Capacity</td><td>750 ml (400 ml Cold + 350 ml Hot)</td></tr>
+          <tr><td>Fixed Temperatures</td><td>Cold: 4°C (39°F) · Hot: 65°C (149°F)</td></tr>
+          <tr><td>Control & Safety</td><td>Central SAP Safety Lock + Individual Spout Locks · One-Press Side Power Button</td></tr>
+          <tr><td>Thermoelectric Core</td><td>TEC1-12706 Peltier + Custom Al Heatsinks + NTC Thermal Sensors</td></tr>
+          <tr><td>Battery & Charging</td><td>10,000mAh Slim LiPo (up to 12h runtime) · 30W PD USB-C (1.5h charge + Power Bank)</td></tr>
+          <tr><td>Materials & Rating</td><td>316 Surgical SS Liner · Matte 304 SS Shell · BPA-Free PP/PETG · RTV-2 Silicone · IPX7</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div id="tab-roadmap" class="tab-panel">
+      <ol class="step-list">
+        <li><strong>Step 1 — Metal Rolling & TIG-Welding:</strong> 304/316 stainless steel sheets & copper foil radiant barrier fabricated in <em>Binondo, Caloocan, Valenzuela & Mandaue City (Cebu)</em>.</li>
+        <li><strong>Step 2 — Thermoelectric & Battery Pack:</strong> TEC1-12706 Peltier, heatsinks & BMS sourced via <em>Alexan, Makerlab, Circuitrocks & Deeco (QC/Manila)</em>; 10,000mAh LiPo assembled in <em>Raon (Quiapo) & Colon/Mandaue</em>.</li>
+        <li><strong>Step 3 — Injection & Silicone Molding:</strong> BPA-free PP/PETG dual-zip lid & food-grade RTV-2 silicone grip/seals molded in <em>Cavite, Laguna, Valenzuela & Cebu</em>.</li>
+        <li><strong>Step 4 — Calibration & IPX7 QA:</strong> Final assembly, 4°C / 65°C thermal verification, and IPX7 waterproof leak testing.</li>
+      </ol>
+    </div>
+
+    <div id="tab-economics" class="tab-panel">
+      <div class="kpi-row">
+        <div class="kpi"><strong>₱1,150–1,350</strong><span>Local BOM / Unit</span></div>
+        <div class="kpi"><strong>₱2,499</strong><span>Flagship SRP</span></div>
+        <div class="kpi"><strong>46%–54%</strong><span>Gross Margin</span></div>
+      </div>
+      <table>
+        <thead>
+          <tr><th>BOM Component</th><th>Est. Cost</th><th>PH Hub</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>304/316 Dual-Chamber SS Body</td><td>~₱400</td><td>Binondo / Valenzuela / Cebu</td></tr>
+          <tr><td>10,000mAh LiPo + 30W PD BMS</td><td>~₱350</td><td>Raon / Colon / Mandaue</td></tr>
+          <tr><td>Peltier, Heatsinks & Power Switch</td><td>~₱220</td><td>QC / Manila Electronics</td></tr>
+          <tr><td>Dual-Zip Lid (SAP) & RTV-2 Seals</td><td>~₱180</td><td>Cavite / Laguna / Valenzuela</td></tr>
+          <tr><td>Assembly, Box & IPX7 Testing</td><td>₱100–₱200</td><td>Local Final QA Line</td></tr>
+        </tbody>
+      </table>
+    </div>
   </aside>
+
+  <script>
+    setTimeout(() => {
+      if (!window.__VIEWER_READY__) {
+        const el = document.getElementById("viewer-status");
+        el.classList.add("error");
+        el.innerHTML =
+          "<strong>3D Engine Failed to Load</strong><br/>Could not reach Three.js CDN. Check your internet connection or refresh the page.";
+      }
+    }, 4500);
+  </script>
 
   <script type="module">
     import * as THREE from "three";
     import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-    import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+
+    window.__VIEWER_READY__ = true;
+    const statusEl = document.getElementById("viewer-status");
+
+    function showError(msg) {
+      statusEl.classList.remove("hidden");
+      statusEl.classList.add("error");
+      statusEl.innerHTML = msg;
+    }
 
     const container = document.getElementById("viewer");
-    const statusBadge = document.getElementById("status-badge");
+    const width = container.clientWidth || (window.innerWidth - 430);
+    const height = container.clientHeight || window.innerHeight;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x131720);
+    scene.background = new THREE.Color(0x0b0d12);
 
-    const camera = new THREE.PerspectiveCamera(
-      38,
-      container.clientWidth / container.clientHeight,
-      0.001,
-      100
-    );
+    const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 5000);
+    camera.position.set(255, 195, 310);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.18;
     container.appendChild(renderer.domElement);
-
-    // Studio IBL environment so metallic materials reflect light properly
-    const pmremGenerator = new THREE.PMREMGenerator(renderer);
-    scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.target.set(0, 132, 0);
+    controls.update();
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
-    keyLight.position.set(1.5, 3.0, 2.0);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.95));
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.6);
+    keyLight.position.set(160, 310, 220);
     scene.add(keyLight);
 
-    const rimLight = new THREE.DirectionalLight(0x93c5fd, 0.8);
-    rimLight.position.set(-1.5, 1.5, -1.5);
+    const fillLight = new THREE.DirectionalLight(0xe0f2fe, 0.85);
+    fillLight.position.set(-190, 180, 140);
+    scene.add(fillLight);
+
+    const rimLight = new THREE.DirectionalLight(0x93c5fd, 0.85);
+    rimLight.position.set(0, 220, -240);
     scene.add(rimLight);
 
-    const partNodes = {};
-    const basePositions = {};
-    let unitScale = 0.001; // Default mm -> m scale, updated automatically from Box3
+    function makeDiamondGripTexture() {
+      const c = document.createElement("canvas");
+      c.width = 64; c.height = 64;
+      const ctx = c.getContext("2d");
+      ctx.fillStyle = "#6b7280";
+      ctx.fillRect(0, 0, 64, 64);
+      ctx.fillStyle = "#9ca3af";
+      for (let y = 0; y < 64; y += 16) {
+        for (let x = 0; x < 64; x += 16) {
+          ctx.beginPath();
+          ctx.moveTo(x + 8, y + 2);
+          ctx.lineTo(x + 14, y + 8);
+          ctx.lineTo(x + 8, y + 14);
+          ctx.lineTo(x + 2, y + 8);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(28, 10);
+      return tex;
+    }
+
+    function makeSipLogoTexture() {
+      const c = document.createElement("canvas");
+      c.width = 512; c.height = 256;
+      const ctx = c.getContext("2d");
+      ctx.clearRect(0, 0, 512, 256);
+      ctx.fillStyle = "#e5e7eb";
+      ctx.font = "900 138px system-ui, -apple-system, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("SIP", 256, 134);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    function makeBezelHudTexture(ledRatioY, labelRatioY) {
+      const c = document.createElement("canvas");
+      c.width = 512; c.height = 1024;
+      const ctx = c.getContext("2d");
+      ctx.clearRect(0, 0, 512, 1024);
+
+      const ledY = Math.round(ledRatioY * 1024);
+      for (let i = 0; i < 4; i++) {
+        const lx = 152 + i * 69;
+        ctx.beginPath();
+        ctx.arc(lx, ledY, 16, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(34, 197, 94, 0.35)";
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(lx, ledY, 10, 0, Math.PI * 2);
+        ctx.fillStyle = "#22c55e";
+        ctx.fill();
+      }
+
+      const textY = Math.round(labelRatioY * 1024);
+      ctx.fillStyle = "#111827";
+      ctx.font = "800 40px system-ui, -apple-system, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("POWER | 18W", 256, textY);
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      return tex;
+    }
+
+    const gripBump = makeDiamondGripTexture();
 
     const materials = {
-      // Base subsystem
-      base_housing: new THREE.MeshStandardMaterial({ color: 0x2b303c, roughness: 0.45, metalness: 0.65 }),
-      battery_pack: new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.35, metalness: 0.2 }),
-      controller_pcb: new THREE.MeshStandardMaterial({ color: 0x059669, roughness: 0.4, metalness: 0.35 }),
+      base_housing: new THREE.MeshStandardMaterial({ color: 0x16181e, roughness: 0.42, metalness: 0.72 }),
+      battery_pack: new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.35, metalness: 0.25 }),
+      controller_pcb: new THREE.MeshStandardMaterial({ color: 0x059669, roughness: 0.4, metalness: 0.4 }),
       usbc_port: new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.25, metalness: 0.9 }),
-      usbc_silicone_plug: new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.85, metalness: 0.0 }),
-      // Thermal subsystem
-      thermal_bulkhead: new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.4, metalness: 0.75 }),
+      usbc_silicone_plug: new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.85, metalness: 0.0 }),
+      thermal_bulkhead: new THREE.MeshStandardMaterial({ color: 0x374151, roughness: 0.4, metalness: 0.8 }),
       peltier_module: new THREE.MeshStandardMaterial({ color: 0xf9fafb, roughness: 0.3, metalness: 0.1 }),
       hot_heatsink: new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.3, metalness: 0.85 }),
       cold_heatsink: new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3, metalness: 0.85 }),
       ntc_sensor_harness: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, metalness: 0.3 }),
-      // Dual-chamber body subsystem
-      outer_body_shell: new THREE.MeshStandardMaterial({ color: 0x2b303c, roughness: 0.45, metalness: 0.65 }),
-      silicone_grip: new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.85, metalness: 0.05 }),
-      hot_chamber_liner: new THREE.MeshStandardMaterial({ color: 0xe4e4e7, emissive: 0x7f1d1d, emissiveIntensity: 0.35, roughness: 0.22, metalness: 0.9 }),
-      cold_chamber_liner: new THREE.MeshStandardMaterial({ color: 0xe4e4e7, emissive: 0x0c4a6e, emissiveIntensity: 0.35, roughness: 0.22, metalness: 0.9 }),
-      copper_radiant_shield: new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.25, metalness: 0.95 }),
+      outer_body_shell: new THREE.MeshStandardMaterial({ color: 0x16181e, roughness: 0.42, metalness: 0.72 }),
+      silicone_grip: new THREE.MeshStandardMaterial({
+        color: 0x6b7280,
+        bumpMap: gripBump,
+        bumpScale: 0.65,
+        roughness: 0.85,
+        metalness: 0.05,
+      }),
+      hot_chamber_liner: new THREE.MeshStandardMaterial({ color: 0xd4d4d8, emissive: 0x7f1d1d, emissiveIntensity: 0.42, roughness: 0.22, metalness: 0.92 }),
+      cold_chamber_liner: new THREE.MeshStandardMaterial({ color: 0xd4d4d8, emissive: 0x0369a1, emissiveIntensity: 0.42, roughness: 0.22, metalness: 0.92 }),
+      copper_radiant_shield: new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.25, metalness: 0.95 }),
       power_button_bezel: new THREE.MeshStandardMaterial({ color: 0xe5e7eb, roughness: 0.22, metalness: 0.92 }),
-      power_button_cap: new THREE.MeshStandardMaterial({ color: 0x1f2937, emissive: 0x10b981, emissiveIntensity: 0.85, roughness: 0.3, metalness: 0.4 }),
-      // Dual-zip lid & SAP safety lock subsystem
+      power_button_cap: new THREE.MeshStandardMaterial({ color: 0x1f2937, emissive: 0x10b981, emissiveIntensity: 0.85, roughness: 0.28, metalness: 0.5 }),
       lid_silicone_gasket: new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.82, metalness: 0.05 }),
-      flow_separators: new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.45, metalness: 0.2 }),
-      lid_collar_base: new THREE.MeshStandardMaterial({ color: 0x272c36, roughness: 0.42, metalness: 0.3 }),
+      flow_separators: new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.45, metalness: 0.25 }),
+      lid_collar_base: new THREE.MeshStandardMaterial({ color: 0x16181e, roughness: 0.4, metalness: 0.3 }),
       individual_spout_locks: new THREE.MeshStandardMaterial({ color: 0x3f3f46, roughness: 0.35, metalness: 0.45 }),
-      hot_zip_spout: new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.45, metalness: 0.08 }),
-      cold_zip_spout: new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.45, metalness: 0.08 }),
-      sap_top_cap: new THREE.MeshStandardMaterial({ color: 0x272c36, roughness: 0.42, metalness: 0.3 }),
-      sap_safety_lock_button: new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.28, metalness: 0.75 }),
+      hot_zip_spout: new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.42, metalness: 0.08 }),
+      cold_zip_spout: new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.42, metalness: 0.08 }),
+      sap_top_cap: new THREE.MeshStandardMaterial({ color: 0x16181e, roughness: 0.4, metalness: 0.3 }),
+      sap_safety_lock_button: new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.26, metalness: 0.78 }),
+      sap_locking_yoke: new THREE.MeshStandardMaterial({ color: 0xf59e0b, emissive: 0x78350f, emissiveIntensity: 0.35, roughness: 0.3, metalness: 0.75 }),
+      sap_return_spring: new THREE.MeshStandardMaterial({ color: 0xe5e7eb, roughness: 0.2, metalness: 0.95 }),
     };
+
+    const partMetadata = {
+      sap_safety_lock_button: { title: "Central SAP Safety Lock Button", hub: "Cavite / Valenzuela Molding", cost: "Part of ~₱180 Lid BOM", desc: "Top-mounted mechanical safety interlock. Must be depressed simultaneously (-3.2 mm stroke) to lower the internal locking yoke below both spout heels." },
+      sap_locking_yoke: { title: "Dual-Lug SAP Mechanical Locking Yoke", hub: "Cavite / Valenzuela Molding", cost: "Part of ~₱180 Lid BOM", desc: "Internal T-fork with twin blocking lugs seated directly behind the Red (65°C) and Blue (4°C) spout heels to prevent accidental bag spills." },
+      sap_return_spring: { title: "SUS304 Stainless Return Spring", hub: "Binondo / Valenzuela Hardware", cost: "Part of ~₱180 Lid BOM", desc: "Corrosion-resistant return spring driving the SAP yoke back into its locked detent whenever both spouts snap shut." },
+      sap_top_cap: { title: "Overhanging SAP Top Cap Housing", hub: "Cavite / Laguna / Valenzuela", cost: "Part of ~₱180 Lid BOM", desc: "BPA-free PP/PETG upper bridge shielding the recessed center button and zip spouts from flat bag impacts." },
+      hot_zip_spout: { title: "Red Hot-Water Zip Spout (65°C)", hub: "Cavite / Valenzuela Molding", cost: "Part of ~₱180 Lid BOM", desc: "Color-coded leak-proof spout with dual silicone ribs isolated exclusively to the 350 ml hot chamber." },
+      cold_zip_spout: { title: "Blue Cold-Water Zip Spout (4°C)", hub: "Cavite / Valenzuela Molding", cost: "Part of ~₱180 Lid BOM", desc: "Color-coded leak-proof spout with dual silicone ribs isolated exclusively to the 400 ml cold chamber." },
+      individual_spout_locks: { title: "Individual Spout Locks & Front Release Latch", hub: "Valenzuela / Cebu Molding", cost: "Part of ~₱180 Lid BOM", desc: "Secondary per-spout mechanical latches paired with a front tactile release button." },
+      lid_collar_base: { title: "BPA-Free PP/PETG Dual-Zip Lid Collar", hub: "Cavite / Laguna / Valenzuela", cost: "Part of ~₱180 Lid BOM", desc: "Threaded/sealed upper collar with open side spout galleries and central septum bridge." },
+      flow_separators: { title: "Internal Dual-Channel Flow Separators", hub: "Cavite / Valenzuela Molding", cost: "Part of ~₱180 Lid BOM", desc: "Isolated internal risers ensuring 65°C hot liquids and 4°C cold liquids never mix inside the lid." },
+      lid_silicone_gasket: { title: "Food-Grade RTV-2 Silicone Chamber Gasket", hub: "Cavite / Laguna Silicone", cost: "Part of ~₱180 Lid BOM", desc: "Compression perimeter ring and central septum seal locking onto the Z = 216 mm chamber rims." },
+      outer_body_shell: { title: "Matte Powder-Coated 304 SS Exterior Shell", hub: "Binondo / Caloocan / Mandaue", cost: "Part of ~₱400 Body BOM", desc: "750 ml ergonomic cylindrical body with tapered neck and matte black powder-coated finish." },
+      silicone_grip: { title: "Textured Grey RTV-2 Silicone Grip Sleeve", hub: "Cavite / Laguna Silicone", cost: "Part of ~₱180 Silicone BOM", desc: "Diamond-knurled food-grade silicone middle sleeve for non-slip handling." },
+      hot_chamber_liner: { title: "350 ml Hot Chamber (316 Surgical SS)", hub: "Binondo / Valenzuela / Cebu", cost: "Part of ~₱400 Body BOM", desc: "316 surgical-grade stainless steel chamber maintained at a fixed optimal 65°C (149°F)." },
+      cold_chamber_liner: { title: "400 ml Cold Chamber (316 Surgical SS)", hub: "Binondo / Valenzuela / Cebu", cost: "Part of ~₱400 Body BOM", desc: "316 surgical-grade stainless steel chamber actively chilled to a fixed 4°C (39°F)." },
+      copper_radiant_shield: { title: "Copper Foil Vacuum Radiant Barrier", hub: "Binondo / Caloocan Metal Supply", cost: "Part of ~₱400 Body BOM", desc: "Internal copper radiant barrier and vacuum gap preventing thermal bleed between the 65°C and 4°C chambers." },
+      power_button_bezel: { title: "Brushed Aluminum Power Bezel (POWER | 18W)", hub: "QC / Manila Electronics", cost: "Part of ~₱220 Thermal BOM", desc: "Vertical brushed bezel housing the 4-LED battery gauge and tactile power interface." },
+      power_button_cap: { title: "One-Press Tactile Power Button", hub: "Alexan / Makerlab / Circuitrocks", cost: "Part of ~₱220 Thermal BOM", desc: "Single-press activation for fixed-temperature thermal maintenance—zero apps or dials required." },
+      thermal_bulkhead: { title: "Split Aluminum Thermal Bulkhead", hub: "Valenzuela / Mandaue CNC", cost: "Part of ~₱220 Thermal BOM", desc: "Conductive thermal bridge transferring heat and cooling directly into the 316 SS chamber bases." },
+      peltier_module: { title: "TEC1-12706 Active Peltier Module", hub: "Alexan / Makerlab / Circuitrocks", cost: "Part of ~₱220 Thermal BOM", desc: "Solid-state thermoelectric heat pump simultaneously heating the hot side (65°C) and chilling the cold side (4°C)." },
+      hot_heatsink: { title: "Hot-Side Custom Aluminum Heatsink", hub: "QC / Manila Suppliers", cost: "Part of ~₱220 Thermal BOM", desc: "Finned thermal exchanger regulating hot-chamber thermal transfer." },
+      cold_heatsink: { title: "Cold-Side Custom Aluminum Heatsink", hub: "QC / Manila Suppliers", cost: "Part of ~₱220 Thermal BOM", desc: "Finned heat-dissipation sink exhausting waste heat from the 4°C cold-side Peltier face." },
+      ntc_sensor_harness: { title: "Dual NTC Thermal Sensor Harness", hub: "Deeco / Circuitrocks Manila", cost: "Part of ~₱220 Thermal BOM", desc: "Closed-loop temperature probes enforcing pre-calibrated 4°C and 65°C targets." },
+      base_housing: { title: "IPX7 Sealed Lower Electronics Housing", hub: "Binondo / Valenzuela / Cebu", cost: "Part of ~₱400 Body BOM", desc: "Lower matte black compartment housing the 10,000mAh LiPo pack and 30W PD BMS board." },
+      battery_pack: { title: "10,000mAh Ultra-Slim High-Density LiPo Pack", hub: "Raon (Quiapo) / Colon & Mandaue", cost: "Part of ~₱350 Battery BOM", desc: "Lightweight pouch-cell battery providing up to 12 hours of active thermal maintenance." },
+      controller_pcb: { title: "30W PD Fast-Charge & Power-Bank BMS PCB", hub: "Raon / Makerlab / Cebu", cost: "Part of ~₱350 Battery BOM", desc: "Supports 0–100% charging in 1.5 hours and doubles as a reverse USB-C emergency power bank." },
+      usbc_port: { title: "Waterproof USB Type-C 30W PD Port", hub: "Alexan / Circuitrocks Manila", cost: "Part of ~₱350 Battery BOM", desc: "Universal bi-directional USB-C receptacle for home, car, or power-bank recharging." },
+      usbc_silicone_plug: { title: "RTV-2 Silicone Waterproof USB-C Cover", hub: "Cavite / Laguna Silicone", cost: "Part of ~₱180 Silicone BOM", desc: "Seals the base USB-C port to achieve full IPX7 washability under running water." },
+    };
+
+    const partMeshes = {};
+    const origWorldPos = new WeakMap();
+    const origWorldQuat = new WeakMap();
+    const clickableMeshes = [];
+
+    const decalLayer = new THREE.Group();
+    scene.add(decalLayer);
+
+    let sipDecal = null;
+    let sipBasePos = new THREE.Vector3();
+    let bezelHud = null;
+    let bezelHudBasePos = new THREE.Vector3();
+
+    // Hinge pivots for Hot (left, -X) and Cold (right, +X) spouts
+    const hotHingePivot = new THREE.Vector3(-24, 240, 0);
+    const coldHingePivot = new THREE.Vector3(24, 240, 0);
+
+    function resolvePartName(obj) {
+      let curr = obj;
+      while (curr) {
+        if (curr.name && materials[curr.name]) return curr.name;
+        curr = curr.parent;
+      }
+      return null;
+    }
+
+    function computePartWorldBox(name) {
+      const box = new THREE.Box3();
+      const meshes = partMeshes[name] || [];
+      for (const m of meshes) {
+        box.expandByObject(m);
+      }
+      return box;
+    }
+
+    function registerProceduralPart(name, group) {
+      partMeshes[name] = [];
+      group.traverse((child) => {
+        if (child.isMesh) {
+          child.userData.partName = name;
+          partMeshes[name].push(child);
+          const wp = new THREE.Vector3();
+          const wq = new THREE.Quaternion();
+          child.getWorldPosition(wp);
+          child.getWorldQuaternion(wq);
+          origWorldPos.set(child, wp);
+          origWorldQuat.set(child, wq);
+          clickableMeshes.push(child);
+        }
+      });
+    }
 
     const modelUrl = "{% static 'models/dualtemp_bottle.glb' %}";
 
     new GLTFLoader().load(
       modelUrl,
       (gltf) => {
-        scene.add(gltf.scene);
+        const rawBox = new THREE.Box3().setFromObject(gltf.scene);
+        const rawSize = rawBox.getSize(new THREE.Vector3());
+        const rawCenter = rawBox.getCenter(new THREE.Vector3());
+        const unitScale = rawSize.y > 0 ? 265.5 / rawSize.y : 1;
 
-        // Bind materials and base positions whether label sits on Group or Mesh
-        let matchedCount = 0;
-        for (const [name, mat] of Object.entries(materials)) {
-          const node = gltf.scene.getObjectByName(name);
-          if (node) {
-            node.traverse((child) => {
-              if (child.isMesh) {
-                child.material = mat;
-              }
-            });
-            partNodes[name] = node;
-            basePositions[name] = node.position.clone();
-            matchedCount++;
+        gltf.scene.scale.setScalar(unitScale);
+        gltf.scene.position.set(
+          -rawCenter.x * unitScale,
+          -rawBox.min.y * unitScale,
+          -rawCenter.z * unitScale
+        );
+
+        scene.add(gltf.scene);
+        gltf.scene.updateMatrixWorld(true);
+
+        gltf.scene.traverse((child) => {
+          if (child.isMesh) {
+            const partName = resolvePartName(child);
+            if (partName) {
+              child.material = materials[partName];
+              child.userData.partName = partName;
+              if (!partMeshes[partName]) partMeshes[partName] = [];
+              partMeshes[partName].push(child);
+
+              const wp = new THREE.Vector3();
+              const wq = new THREE.Quaternion();
+              child.getWorldPosition(wp);
+              child.getWorldQuaternion(wq);
+              origWorldPos.set(child, wp);
+              origWorldQuat.set(child, wq);
+              clickableMeshes.push(child);
+            }
           }
+        });
+
+        // Compute exact hinge pivot coordinates from spout world bounding boxes
+        const hotBox = computePartWorldBox("hot_zip_spout");
+        const coldBox = computePartWorldBox("cold_zip_spout");
+        if (!hotBox.isEmpty()) {
+          const c = hotBox.getCenter(new THREE.Vector3());
+          hotHingePivot.set(hotBox.min.x + 2.2, hotBox.min.y + 1.5, c.z);
+        }
+        if (!coldBox.isEmpty()) {
+          const c = coldBox.getCenter(new THREE.Vector3());
+          coldHingePivot.set(coldBox.max.x - 2.2, coldBox.min.y + 1.5, c.z);
         }
 
-        // Auto-frame camera based on true exported bounding box (handles m or mm)
-        const box = new THREE.Box3().setFromObject(gltf.scene);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z) || 0.261;
+        // Build procedural SAP Locking Yoke & Return Spring if not yet exported in .glb
+        const btnBox = computePartWorldBox("sap_safety_lock_button");
+        const topCapBox = computePartWorldBox("sap_top_cap");
+        if (!partMeshes.sap_locking_yoke && !btnBox.isEmpty() && !topCapBox.isEmpty()) {
+          const btnCenter = btnBox.getCenter(new THREE.Vector3());
+          const bridgeBottomY = topCapBox.min.y;
+          const yokeGroup = new THREE.Group();
 
-        unitScale = maxDim / 261.0;
+          const stemHeight = Math.max(8, btnBox.min.y - bridgeBottomY + 3.5);
+          const stem = new THREE.Mesh(
+            new THREE.CylinderGeometry(2.3, 2.3, stemHeight, 20),
+            materials.sap_locking_yoke
+          );
+          stem.position.set(btnCenter.x, bridgeBottomY - 1.5 + stemHeight * 0.5, btnCenter.z);
+          yokeGroup.add(stem);
 
-        const fovRad = THREE.MathUtils.degToRad(camera.fov);
-        const distance = (maxDim / (2 * Math.tan(fovRad / 2))) * 1.45;
+          const leftInnerX = !hotBox.isEmpty() ? hotBox.max.x - 2.5 : -14;
+          const rightInnerX = !coldBox.isEmpty() ? coldBox.min.x + 2.5 : 14;
+          const span = Math.max(24, rightInnerX - leftInnerX + 4);
+          const bar = new THREE.Mesh(
+            new THREE.BoxGeometry(span, 2.2, 5.2),
+            materials.sap_locking_yoke
+          );
+          bar.position.set(btnCenter.x, bridgeBottomY - 1.2, btnCenter.z);
+          yokeGroup.add(bar);
 
-        camera.near = maxDim / 500;
-        camera.far = maxDim * 50;
-        camera.position.set(
-          center.x + distance * 0.72,
-          center.y + distance * 0.38,
-          center.z + distance * 0.85
-        );
-        camera.updateProjectionMatrix();
+          // Twin downward locking lugs sitting directly behind the Hot and Cold spout heels
+          for (const lugX of [leftInnerX, rightInnerX]) {
+            const lug = new THREE.Mesh(
+              new THREE.BoxGeometry(3.8, 4.4, 5.2),
+              materials.sap_locking_yoke
+            );
+            lug.position.set(lugX, bridgeBottomY - 3.2, btnCenter.z);
+            yokeGroup.add(lug);
+          }
 
-        controls.target.copy(center);
-        controls.minDistance = maxDim * 0.4;
-        controls.maxDistance = maxDim * 8;
-        controls.update();
+          decalLayer.add(yokeGroup);
+          yokeGroup.updateMatrixWorld(true);
+          registerProceduralPart("sap_locking_yoke", yokeGroup);
 
-        statusBadge.textContent = `Loaded ${matchedCount}/25 sub-assemblies (${size.y.toFixed(3)} units tall)`;
+          // Helical coil return spring concentric with the center guide post
+          const springGroup = new THREE.Group();
+          const turns = 5;
+          const springH = Math.max(6, stemHeight * 0.72);
+          for (let i = 0; i < turns; i++) {
+            const coil = new THREE.Mesh(
+              new THREE.TorusGeometry(3.8, 0.55, 10, 24),
+              materials.sap_return_spring
+            );
+            coil.rotation.x = Math.PI / 2;
+            coil.position.set(
+              btnCenter.x,
+              bridgeBottomY + (i / (turns - 1)) * springH,
+              btnCenter.z
+            );
+            springGroup.add(coil);
+          }
+          decalLayer.add(springGroup);
+          springGroup.updateMatrixWorld(true);
+          registerProceduralPart("sap_return_spring", springGroup);
+        }
+
+        const loadedPartCount = Object.keys(partMeshes).length;
+        document.getElementById("part-count-pill").textContent = `${loadedPartCount} Mechanical Parts Active`;
+
+        // Measure exact world bounding boxes to place SIP wordmark and POWER | 18W + LEDs
+        const shellBox = computePartWorldBox("outer_body_shell");
+        const gripBox = computePartWorldBox("silicone_grip");
+        const bezelBox = computePartWorldBox("power_button_bezel");
+        const capBox = computePartWorldBox("power_button_cap");
+
+        const bezelCenter = bezelBox.getCenter(new THREE.Vector3());
+        const bezelSize = bezelBox.getSize(new THREE.Vector3());
+        const frontSign = bezelCenter.z >= 0 ? 1 : -1;
+
+        if (!shellBox.isEmpty()) {
+          const shellSize = shellBox.getSize(new THREE.Vector3());
+          const shellRadius = Math.max(shellSize.x, shellSize.z) * 0.5;
+          const lowerBandTop = !gripBox.isEmpty() ? gripBox.min.y : shellBox.min.y + 46;
+          const sipCenterY = (shellBox.min.y + lowerBandTop) * 0.5;
+          const sipHeight = Math.min(26, Math.max(16, (lowerBandTop - shellBox.min.y) * 0.58));
+
+          const sipGeo = new THREE.CylinderGeometry(
+            shellRadius + 0.35,
+            shellRadius + 0.35,
+            sipHeight,
+            32,
+            1,
+            true,
+            -0.36,
+            0.72
+          );
+          const sipMat = new THREE.MeshStandardMaterial({
+            map: makeSipLogoTexture(),
+            transparent: true,
+            roughness: 0.38,
+            metalness: 0.45,
+            depthWrite: false,
+          });
+          sipDecal = new THREE.Mesh(sipGeo, sipMat);
+          sipBasePos.set(0, sipCenterY, 0);
+          sipDecal.position.copy(sipBasePos);
+          if (frontSign < 0) sipDecal.rotation.y = Math.PI;
+          decalLayer.add(sipDecal);
+        }
+
+        if (!bezelBox.isEmpty()) {
+          const hudWidth = Math.max(14, bezelSize.x * 0.92);
+          const hudHeight = Math.max(30, bezelSize.y * 0.92);
+
+          let ledRatioY = 0.16;
+          let labelRatioY = 0.84;
+          if (!capBox.isEmpty()) {
+            const topGapMidY = (bezelBox.max.y + capBox.max.y) * 0.5;
+            const botGapMidY = (bezelBox.min.y + capBox.min.y) * 0.5;
+            ledRatioY = THREE.MathUtils.clamp((bezelBox.max.y - topGapMidY) / bezelSize.y, 0.1, 0.32);
+            labelRatioY = THREE.MathUtils.clamp((bezelBox.max.y - botGapMidY) / bezelSize.y, 0.68, 0.9);
+          }
+
+          const hudGeo = new THREE.PlaneGeometry(hudWidth, hudHeight);
+          const hudMat = new THREE.MeshBasicMaterial({
+            map: makeBezelHudTexture(ledRatioY, labelRatioY),
+            transparent: true,
+            depthWrite: false,
+          });
+          bezelHud = new THREE.Mesh(hudGeo, hudMat);
+          const frontFaceZ = (frontSign > 0 ? bezelBox.max.z : bezelBox.min.z) + frontSign * 0.35;
+          bezelHudBasePos.set(bezelCenter.x, bezelCenter.y, frontFaceZ);
+          bezelHud.position.copy(bezelHudBasePos);
+          if (frontSign < 0) bezelHud.rotation.y = Math.PI;
+          decalLayer.add(bezelHud);
+        }
+
+        statusEl.classList.add("hidden");
       },
       undefined,
       (err) => {
-        console.error("GLTF load error:", err);
-        statusBadge.style.color = "#f87171";
-        statusBadge.textContent = `Failed to load ${modelUrl} — run: uv run python manage.py build_model`;
+        console.error("GLTFLoader error:", err);
+        showError(
+          `<strong>Could not load 3D model</strong><br/>Failed to fetch <code>${modelUrl}</code>.<br/>Run <code>uv run python manage.py build_model</code> and ensure <code>STATICFILES_DIRS = [BASE_DIR / "static"]</code> is set in <code>config/settings.py</code>.`
+        );
       }
     );
 
-    // Millimeter offsets automatically scaled by unitScale (0.001 when glTF is in meters)
-    const offsetsMm = {
-      base_housing: new THREE.Vector3(0, -45, 0),
-      battery_pack: new THREE.Vector3(0, -25, -24),
-      controller_pcb: new THREE.Vector3(0, -25, 24),
-      usbc_port: new THREE.Vector3(0, -35, 38),
-      usbc_silicone_plug: new THREE.Vector3(0, -35, 56),
-      thermal_bulkhead: new THREE.Vector3(0, 0, 0),
-      peltier_module: new THREE.Vector3(0, 12, 0),
-      hot_heatsink: new THREE.Vector3(-28, 12, 0),
-      cold_heatsink: new THREE.Vector3(28, 12, 0),
-      ntc_sensor_harness: new THREE.Vector3(0, 18, 28),
-      hot_chamber_liner: new THREE.Vector3(-26, 52, 0),
-      cold_chamber_liner: new THREE.Vector3(26, 52, 0),
-      copper_radiant_shield: new THREE.Vector3(0, 56, 0),
-      outer_body_shell: new THREE.Vector3(0, 82, 0),
-      silicone_grip: new THREE.Vector3(0, 82, -32),
-      power_button_bezel: new THREE.Vector3(0, 82, 34),
-      power_button_cap: new THREE.Vector3(0, 82, 46),
-      lid_silicone_gasket: new THREE.Vector3(0, 108, 0),
-      flow_separators: new THREE.Vector3(0, 126, 0),
-      lid_collar_base: new THREE.Vector3(0, 148, 0),
-      individual_spout_locks: new THREE.Vector3(0, 150, 32),
-      hot_zip_spout: new THREE.Vector3(-24, 170, 0),
-      cold_zip_spout: new THREE.Vector3(24, 170, 0),
+    const offsets = {
+      base_housing: new THREE.Vector3(0, -88, 0),
+      battery_pack: new THREE.Vector3(-42, -46, -42),
+      controller_pcb: new THREE.Vector3(42, -46, 42),
+      usbc_port: new THREE.Vector3(0, -56, 62),
+      usbc_silicone_plug: new THREE.Vector3(0, -56, 86),
+      thermal_bulkhead: new THREE.Vector3(0, -14, 0),
+      peltier_module: new THREE.Vector3(0, 6, 0),
+      hot_heatsink: new THREE.Vector3(-48, 8, 0),
+      cold_heatsink: new THREE.Vector3(48, 8, 0),
+      ntc_sensor_harness: new THREE.Vector3(0, 14, 54),
+      hot_chamber_liner: new THREE.Vector3(-52, 46, 0),
+      cold_chamber_liner: new THREE.Vector3(52, 46, 0),
+      copper_radiant_shield: new THREE.Vector3(0, 46, 0),
+      outer_body_shell: new THREE.Vector3(0, 46, -108),
+      silicone_grip: new THREE.Vector3(0, 46, -158),
+      power_button_bezel: new THREE.Vector3(0, 46, 92),
+      power_button_cap: new THREE.Vector3(0, 46, 114),
+      lid_silicone_gasket: new THREE.Vector3(0, 76, 0),
+      flow_separators: new THREE.Vector3(0, 102, 0),
+      lid_collar_base: new THREE.Vector3(0, 130, 0),
+      individual_spout_locks: new THREE.Vector3(0, 134, 54),
+      hot_zip_spout: new THREE.Vector3(-42, 160, 0),
+      cold_zip_spout: new THREE.Vector3(42, 160, 0),
       sap_top_cap: new THREE.Vector3(0, 192, 0),
-      sap_safety_lock_button: new THREE.Vector3(0, 214, 0),
+      sap_locking_yoke: new THREE.Vector3(0, 206, 0),
+      sap_return_spring: new THREE.Vector3(0, 214, 0),
+      sap_safety_lock_button: new THREE.Vector3(0, 224, 0),
     };
 
+    // Two-stage SAP Interlock State Machine
+    let explodeT = 0;
+    let userDepressingSap = false;
+    let hotSpoutOpen = false;
+    let coldSpoutOpen = false;
+
+    // Animated kinematic values
+    let sapStrokeMm = 0;      // 0 mm (resting locked) -> 3.4 mm (depressed unlocked)
+    let hotAngleRad = 0;      // 0 rad (closed) -> +0.66 rad (~38 deg open around left hinge)
+    let coldAngleRad = 0;     // 0 rad (closed) -> -0.66 rad (~38 deg open around right hinge)
+    let hotRecoilTimer = 0;
+    let coldRecoilTimer = 0;
+    let lugFlashTimer = 0;
+
+    const telemetryEl = document.getElementById("sap-telemetry");
+    const sapBadgeEl = document.getElementById("sap-badge-state");
+    const sapDepressBtn = document.getElementById("sap-depress-btn");
+    const hotSpoutBtn = document.getElementById("hot-spout-btn");
+    const coldSpoutBtn = document.getElementById("cold-spout-btn");
+
+    function updateInterlockUI() {
+      const camHeld = hotSpoutOpen || coldSpoutOpen;
+      const effectivelyUnlocked = userDepressingSap || camHeld;
+
+      sapDepressBtn.classList.toggle("active", userDepressingSap);
+      sapDepressBtn.textContent = userDepressingSap ? "1. SAP Lock: DEPRESSED" : "1. Depress SAP Lock";
+
+      hotSpoutBtn.classList.toggle("hot-active", hotSpoutOpen);
+      hotSpoutBtn.textContent = hotSpoutOpen ? "2A. Close Hot Spout" : "2A. Flip Hot Spout (65°C)";
+
+      coldSpoutBtn.classList.toggle("cold-active", coldSpoutOpen);
+      coldSpoutBtn.textContent = coldSpoutOpen ? "2B. Close Cold Spout" : "2B. Flip Cold Spout (4°C)";
+
+      if (lugFlashTimer > 0) {
+        sapBadgeEl.textContent = "BLOCKED!";
+        sapBadgeEl.style.color = "#ef4444";
+        telemetryEl.className = "sap-telemetry blocked";
+      } else if (effectivelyUnlocked) {
+        sapBadgeEl.textContent = userDepressingSap ? "UNLOCKED" : "CAM-HELD";
+        sapBadgeEl.style.color = "#10b981";
+        telemetryEl.className = "sap-telemetry unlocked";
+        if (userDepressingSap && !camHeld) {
+          telemetryEl.innerHTML =
+            "<strong>Stage 1 Active (Yoke Depressed -3.4 mm):</strong> Locking lugs cleared both spout heels. Click <em>2A. Flip Hot Spout</em> or <em>2B. Flip Cold Spout</em>.";
+        } else if (camHeld && !userDepressingSap) {
+          telemetryEl.innerHTML =
+            "<strong>Heel-Cam Hold Active:</strong> Open spout heel holds the SAP yoke down. Snap both spouts shut so the return spring re-engages the lock.";
+        } else {
+          telemetryEl.innerHTML =
+            "<strong>Stage 2 Active (Spout Open):</strong> Isolated chamber ready to pour while the opposite spout stays sealed.";
+        }
+      } else {
+        sapBadgeEl.textContent = "LOCKED";
+        sapBadgeEl.style.color = "#f59e0b";
+        telemetryEl.className = "sap-telemetry";
+        telemetryEl.innerHTML =
+          "<strong>Resting Backpack-Safe State:</strong> Internal SUS304 return spring holds the SAP locking lugs behind both spout heels. Depress <em>1. Depress SAP Lock</em> (or hold <code>Space</code>) before flipping a spout.";
+      }
+    }
+
+    sapDepressBtn.addEventListener("click", () => {
+      userDepressingSap = !userDepressingSap;
+      updateInterlockUI();
+    });
+
+    hotSpoutBtn.addEventListener("click", () => {
+      if (!hotSpoutOpen && !userDepressingSap && !coldSpoutOpen) {
+        hotRecoilTimer = 0.45;
+        lugFlashTimer = 1.6;
+        telemetryEl.className = "sap-telemetry blocked";
+        telemetryEl.innerHTML =
+          "<strong>BLOCKED BY SAP YOKE:</strong> Red (65°C) spout heel collided with the raised locking lug. Depress <em>1. Depress SAP Lock</em> first!";
+        updateInterlockUI();
+        return;
+      }
+      hotSpoutOpen = !hotSpoutOpen;
+      updateInterlockUI();
+    });
+
+    coldSpoutBtn.addEventListener("click", () => {
+      if (!coldSpoutOpen && !userDepressingSap && !hotSpoutOpen) {
+        coldRecoilTimer = 0.45;
+        lugFlashTimer = 1.6;
+        telemetryEl.className = "sap-telemetry blocked";
+        telemetryEl.innerHTML =
+          "<strong>BLOCKED BY SAP YOKE:</strong> Blue (4°C) spout heel collided with the raised locking lug. Depress <em>1. Depress SAP Lock</em> first!";
+        updateInterlockUI();
+        return;
+      }
+      coldSpoutOpen = !coldSpoutOpen;
+      updateInterlockUI();
+    });
+
+    // Hold Spacebar as a physical push-button shortcut for the SAP Safety Lock
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && document.activeElement.tagName !== "BUTTON") {
+        e.preventDefault();
+        if (!userDepressingSap) {
+          userDepressingSap = true;
+          updateInterlockUI();
+        }
+      }
+      if (e.key === "1") setCameraView("hero");
+      if (e.key === "2") setCameraView("lid");
+      if (e.key === "3") setCameraView("core");
+      if (e.key === "4") setCameraView("base");
+    });
+
+    window.addEventListener("keyup", (e) => {
+      if (e.code === "Space") {
+        userDepressingSap = false;
+        updateInterlockUI();
+      }
+    });
+
+    const zAxis = new THREE.Vector3(0, 0, 1);
+    const parentWorldQuat = new THREE.Quaternion();
+    const parentWorldQuatInv = new THREE.Quaternion();
+
+    function applyKinematics() {
+      for (const [name, meshes] of Object.entries(partMeshes)) {
+        const offset = offsets[name] || new THREE.Vector3();
+
+        for (const mesh of meshes) {
+          const baseWp = origWorldPos.get(mesh);
+          const baseWq = origWorldQuat.get(mesh);
+          if (!baseWp || !baseWq || !mesh.parent) continue;
+
+          const targetWp = baseWp.clone().addScaledVector(offset, explodeT);
+          const targetWq = baseWq.clone();
+
+          // Stage 1: SAP Safety Lock Button, Locking Yoke & Return Spring vertical travel
+          if (name === "sap_safety_lock_button" || name === "sap_locking_yoke") {
+            targetWp.y -= sapStrokeMm;
+          } else if (name === "sap_return_spring") {
+            targetWp.y -= sapStrokeMm * 0.5;
+            mesh.scale.y = Math.max(0.45, 1 - sapStrokeMm * 0.12);
+          }
+
+          // Stage 2: True hinge-pin pivot rotation for Hot (left) & Cold (right) spouts
+          if (name === "hot_zip_spout" && Math.abs(hotAngleRad) > 0.0001) {
+            const pivot = hotHingePivot.clone().addScaledVector(offset, explodeT);
+            const qTilt = new THREE.Quaternion().setFromAxisAngle(zAxis, hotAngleRad);
+            targetWp.sub(pivot).applyQuaternion(qTilt).add(pivot);
+            targetWq.premultiply(qTilt);
+          } else if (name === "cold_zip_spout" && Math.abs(coldAngleRad) > 0.0001) {
+            const pivot = coldHingePivot.clone().addScaledVector(offset, explodeT);
+            const qTilt = new THREE.Quaternion().setFromAxisAngle(zAxis, coldAngleRad);
+            targetWp.sub(pivot).applyQuaternion(qTilt).add(pivot);
+            targetWq.premultiply(qTilt);
+          }
+
+          mesh.parent.updateMatrixWorld(true);
+          mesh.parent.getWorldQuaternion(parentWorldQuat);
+          parentWorldQuatInv.copy(parentWorldQuat).invert();
+
+          mesh.position.copy(mesh.parent.worldToLocal(targetWp));
+          mesh.quaternion.copy(parentWorldQuatInv.multiply(targetWq));
+        }
+      }
+
+      if (sipDecal && offsets.outer_body_shell) {
+        sipDecal.position.copy(sipBasePos).addScaledVector(offsets.outer_body_shell, explodeT);
+      }
+      if (bezelHud && offsets.power_button_bezel) {
+        bezelHud.position.copy(bezelHudBasePos).addScaledVector(offsets.power_button_bezel, explodeT);
+      }
+    }
+
     document.getElementById("explode").addEventListener("input", (e) => {
-      const t = parseFloat(e.target.value);
-      for (const [name, node] of Object.entries(partNodes)) {
-        if (offsetsMm[name]) {
-          node.position
-            .copy(basePositions[name])
-            .addScaledVector(offsetsMm[name], t * unitScale);
+      explodeT = parseFloat(e.target.value);
+      document.getElementById("explode-val").textContent = `${Math.round(explodeT * 100)}%`;
+    });
+
+    // Full Shell X-Ray vs. SAP Top Cap Cutaway
+    let fullXray = false;
+    let capCutaway = false;
+    const shellKeys = ["base_housing", "outer_body_shell", "silicone_grip", "lid_collar_base", "sap_top_cap"];
+    const xrayBtn = document.getElementById("xray-btn");
+    const capXrayBtn = document.getElementById("cap-xray-btn");
+
+    function syncTransparencyMaterials() {
+      for (const key of shellKeys) {
+        const isTransparent = fullXray || (key === "sap_top_cap" && capCutaway);
+        materials[key].transparent = isTransparent;
+        materials[key].opacity = isTransparent ? (key === "sap_top_cap" && capCutaway && !fullXray ? 0.24 : 0.2) : 1.0;
+        materials[key].depthWrite = !isTransparent;
+        materials[key].needsUpdate = true;
+      }
+      xrayBtn.textContent = `Full Shell X-Ray: ${fullXray ? "ON" : "OFF"}`;
+      xrayBtn.classList.toggle("active", fullXray);
+      capXrayBtn.textContent = `SAP Cap Cutaway: ${capCutaway ? "ON" : "OFF"}`;
+      capXrayBtn.classList.toggle("active", capCutaway);
+    }
+
+    xrayBtn.addEventListener("click", () => {
+      fullXray = !fullXray;
+      syncTransparencyMaterials();
+    });
+
+    capXrayBtn.addEventListener("click", () => {
+      capCutaway = !capCutaway;
+      syncTransparencyMaterials();
+    });
+
+    // Choreographed 5-Second Pitch Auto-Demo of the SAP Interlock
+    let demoTimers = [];
+    const sapDemoBtn = document.getElementById("sap-demo-btn");
+    sapDemoBtn.addEventListener("click", () => {
+      demoTimers.forEach(clearTimeout);
+      demoTimers = [];
+
+      // Reset to locked state, zoom into lid, and enable SAP Cap Cutaway
+      userDepressingSap = false;
+      hotSpoutOpen = false;
+      coldSpoutOpen = false;
+      capCutaway = true;
+      syncTransparencyMaterials();
+      setCameraView("lid");
+      updateInterlockUI();
+
+      sapDemoBtn.classList.add("active");
+      sapDemoBtn.textContent = "Running Demo…";
+
+      // T+0.7s: Attempt to open Hot Spout while SAP Lock is raised -> Blocked!
+      demoTimers.push(setTimeout(() => hotSpoutBtn.click(), 700));
+      // T+2.0s: Depress Top SAP Safety Lock (-3.4 mm)
+      demoTimers.push(setTimeout(() => {
+        userDepressingSap = true;
+        updateInterlockUI();
+      }, 2000));
+      // T+2.8s: Flip Red Hot Spout (65°C) open around its hinge pin
+      demoTimers.push(setTimeout(() => {
+        hotSpoutOpen = true;
+        updateInterlockUI();
+      }, 2800));
+      // T+4.3s: Close Hot Spout & release SAP Lock -> Spring snaps yoke back up
+      demoTimers.push(setTimeout(() => {
+        hotSpoutOpen = false;
+        userDepressingSap = false;
+        updateInterlockUI();
+        sapDemoBtn.classList.remove("active");
+        sapDemoBtn.textContent = "▶ Auto-Demo Interlock";
+      }, 4300));
+    });
+
+    const cameraPresets = {
+      hero: { pos: new THREE.Vector3(255, 195, 310), target: new THREE.Vector3(0, 132, 0) },
+      lid:  { pos: new THREE.Vector3(98, 274, 128),  target: new THREE.Vector3(0, 245, 0) },
+      core: { pos: new THREE.Vector3(175, 145, 195), target: new THREE.Vector3(0, 118, 0) },
+      base: { pos: new THREE.Vector3(135, 55, 150),  target: new THREE.Vector3(0, 28, 0) },
+    };
+    let targetCamPos = null;
+    let targetLookAt = null;
+
+    function setCameraView(key) {
+      const preset = cameraPresets[key];
+      if (!preset) return;
+      targetCamPos = preset.pos.clone();
+      targetLookAt = preset.target.clone();
+      document.querySelectorAll(".cam-btn").forEach((b) => {
+        b.classList.toggle("active", b.dataset.view === key);
+      });
+    }
+
+    document.querySelectorAll(".cam-btn").forEach((btn) => {
+      btn.addEventListener("click", () => setCameraView(btn.dataset.view));
+    });
+
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let downPos = { x: 0, y: 0 };
+
+    renderer.domElement.addEventListener("pointerdown", (e) => {
+      downPos = { x: e.clientX, y: e.clientY };
+    });
+
+    renderer.domElement.addEventListener("pointerup", (e) => {
+      if (Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 5) return;
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(clickableMeshes, false);
+      if (hits.length > 0) {
+        const hitName = hits[0].object.userData.partName || resolvePartName(hits[0].object);
+        const meta = partMetadata[hitName];
+        if (meta) {
+          document.getElementById("insp-tag").textContent = `${meta.hub} · ${meta.cost}`;
+          document.getElementById("insp-title").textContent = meta.title;
+          document.getElementById("insp-meta").textContent = meta.desc;
         }
       }
     });
 
-    let xray = false;
-    const shellKeys = [
-      "base_housing",
-      "outer_body_shell",
-      "silicone_grip",
-      "lid_collar_base",
-      "sap_top_cap",
-    ];
-    document.getElementById("xray-btn").addEventListener("click", () => {
-      xray = !xray;
-      for (const key of shellKeys) {
-        materials[key].transparent = xray;
-        materials[key].opacity = xray ? 0.22 : 1.0;
-        materials[key].depthWrite = !xray;
-        materials[key].needsUpdate = true;
-      }
+    document.querySelectorAll(".tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+      });
     });
 
     window.addEventListener("resize", () => {
-      camera.aspect = container.clientWidth / container.clientHeight;
+      const w = container.clientWidth || (window.innerWidth - 430);
+      const h = container.clientHeight || window.innerHeight;
+      camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setSize(w, h);
     });
+
+    const clock = new THREE.Clock();
 
     function animate() {
       requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+
+      // Compute target stroke (user press = 3.4 mm; open spout heel cam hold = 2.5 mm)
+      const camHeld = hotSpoutOpen || coldSpoutOpen;
+      const targetStroke = userDepressingSap ? 3.4 : (camHeld ? 2.5 : 0);
+      sapStrokeMm += (targetStroke - sapStrokeMm) * Math.min(1, dt * 14);
+
+      // Compute spout angles with blocked-recoil shake when hitting the raised SAP lug
+      let targetHotAngle = hotSpoutOpen ? 1.42 : 0;
+      if (hotRecoilTimer > 0) {
+        hotRecoilTimer = Math.max(0, hotRecoilTimer - dt);
+        targetHotAngle = Math.sin(hotRecoilTimer * 42) * 0.065 * (hotRecoilTimer / 0.45);
+      }
+      hotAngleRad += (targetHotAngle - hotAngleRad) * Math.min(1, dt * 16);
+
+      let targetColdAngle = coldSpoutOpen ? -1.42 : 0;
+      if (coldRecoilTimer > 0) {
+        coldRecoilTimer = Math.max(0, coldRecoilTimer - dt);
+        targetColdAngle = -Math.sin(coldRecoilTimer * 42) * 0.065 * (coldRecoilTimer / 0.45);
+      }
+      coldAngleRad += (targetColdAngle - coldAngleRad) * Math.min(1, dt * 16);
+
+      // Highlight locking yoke red when blocking an accidental spout flip
+      if (lugFlashTimer > 0) {
+        lugFlashTimer = Math.max(0, lugFlashTimer - dt);
+        materials.sap_locking_yoke.color.setHex(0xef4444);
+        materials.sap_locking_yoke.emissive.setHex(0x991b1b);
+        materials.sap_locking_yoke.emissiveIntensity = 0.85;
+        if (lugFlashTimer === 0) {
+          materials.sap_locking_yoke.color.setHex(0xf59e0b);
+          materials.sap_locking_yoke.emissive.setHex(0x78350f);
+          materials.sap_locking_yoke.emissiveIntensity = 0.35;
+          updateInterlockUI();
+        }
+      }
+
+      applyKinematics();
+
+      if (targetCamPos && targetLookAt) {
+        camera.position.lerp(targetCamPos, 0.1);
+        controls.target.lerp(targetLookAt, 0.1);
+        if (camera.position.distanceTo(targetCamPos) < 0.5) {
+          targetCamPos = null;
+          targetLookAt = null;
+        }
+      }
       controls.update();
       renderer.render(scene, camera);
     }
