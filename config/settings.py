@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-ip4y+no@n$zf#wr@3l9o1u9$y+20=)&+%$v&8&498h1!i4a9*4
 
 # Security & Hosts
 DEBUG = os.environ.get("DEBUG", "False") == "True"
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", ".onrender.com").split(",")
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", ".onrender.com,127.0.0.1").split(",")
 
 
 # Application definition
